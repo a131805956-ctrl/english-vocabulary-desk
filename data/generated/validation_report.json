@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-07-13T13:30:43+08:00",
+  "all_passed": true,
+  "checks": {
+    "yingdan1.entry_count": {
+      "actual": 582,
+      "expected": 582,
+      "passed": true
+    },
+    "yingdan1.unique_canonical_terms": {
+      "actual": 574,
+      "expected": 574,
+      "passed": true
+    },
+    "yingdan1.prefix_entries": {
+      "actual": 327,
+      "expected": 327,
+      "passed": true
+    },
+    "yingdan1.root_entries": {
+      "actual": 255,
+      "expected": 255,
+      "passed": true
+    },
+    "yingdan1.unit_count": {
+      "actual": 13,
+      "expected": 13,
+      "passed": true
+    },
+    "yingdan1.group_count": {
+      "actual": 100,
+      "expected": 100,
+      "passed": true
+    },
+    "yingdan1.duplicate_term_groups": {
+      "actual": 8,
+      "expected": 8,
+      "passed": true
+    },
+    "yingdan1.trusted_zh_examples": {
+      "actual": 579,
+      "expected": 579,
+      "passed": true
+    },
+    "yingdan1.prefix_021_missing": {
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    "yingdan1.prefix_022_inferred": {
+      "actual": 17,
+      "expected": 17,
+      "passed": true
+    }
+  }
+}

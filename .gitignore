@@ -1,0 +1,19 @@
+# Installed packages and build output
+node_modules/
+dist/
+
+# Local learning progress and SQLite sidecar files
+data/runtime/
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Local verification artefacts and logs
+output/
+*.log
+
+# Local configuration and operating-system files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

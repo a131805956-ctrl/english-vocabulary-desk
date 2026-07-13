@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "yingdan1",
+      "title": "英單1（字首／字根篇）",
+      "collection": "英單1",
+      "kind": "notebooklm_markdown",
+      "markdown_path": "../toeic_vocabulary_notebooklm.md",
+      "raw_json_path": "../toeic_vocabulary_notebooklm.raw.json",
+      "pdf_path": "../英單1.pdf",
+      "enabled": true,
+      "expected": {
+        "pdf_pages": 84,
+        "content_pages": 82,
+        "entry_markers": 582,
+        "unique_canonical_terms": 574,
+        "prefix_entries": 327,
+        "root_entries": 255,
+        "unit_count": 13,
+        "group_count_including_placeholders": 100,
+        "duplicate_term_groups": 8,
+        "trusted_zh_examples": 579
+      },
+      "page_map": [
+        {
+          "content_start": 1,
+          "content_end": 18,
+          "pdf_offset": 0,
+          "printed_offset": 15
+        },
+        {
+          "content_start": 19,
+          "content_end": 46,
+          "pdf_offset": 0,
+          "printed_offset": 17
+        },
+        {
+          "content_start": 47,
+          "content_end": 82,
+          "pdf_offset": 2,
+          "printed_offset": 19
+        }
+      ],
+      "known_gaps": [
+        {
+          "kind": "missing_from_pdf",
+          "printed_pages": [34, 35],
+          "description": "原始 PDF 本身未包含原書第 34、35 頁；字首 021 全段與字首 022 開頭無法由現有檔案還原。"
+        },
+        {
+          "kind": "non_vocabulary_pages",
+          "pdf_pages": [47, 48],
+          "printed_pages": [64, 65],
+          "description": "筆記頁與字根篇標題頁，不列入 82 個單字內容頁。"
+        }
+      ],
+      "manual_groups": [
+        {
+          "section": "prefix",
+          "index": 21,
+          "unit_index": 5,
+          "forms": [],
+          "meaning_zh": "來源缺頁，內容未知",
+          "status": "missing_source",
+          "note": "原書第 34、35 頁不在 PDF 中；不猜測標題或單字。"
+        },
+        {
+          "section": "prefix",
+          "index": 22,
+          "unit_index": 5,
+          "forms": ["re-"],
+          "meaning_zh": "返回；再一次",
+          "status": "inferred_header",
+          "note": "標題位於缺頁；依第 36、37 頁現存 re- 單字的解碼欄位推定。"
+        }
+      ]
+    }
+  ]
+}

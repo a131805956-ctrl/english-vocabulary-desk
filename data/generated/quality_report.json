@@ -1,0 +1,249 @@
+{
+  "entry_count": 582,
+  "unique_canonical_terms": 574,
+  "duplicate_term_group_count": 8,
+  "duplicate_extra_occurrences": 8,
+  "duplicate_terms": {
+    "digest": [
+      "yingdan1:p018:e03",
+      "yingdan1:p067:e05"
+    ],
+    "disappoint": [
+      "yingdan1:p035:e02",
+      "yingdan1:p075:e03"
+    ],
+    "enterprise": [
+      "yingdan1:p006:e01",
+      "yingdan1:p073:e06"
+    ],
+    "example": [
+      "yingdan1:p022:e08",
+      "yingdan1:p066:e03"
+    ],
+    "index": [
+      "yingdan1:p005:e01",
+      "yingdan1:p054:e07"
+    ],
+    "opposite": [
+      "yingdan1:p037:e08",
+      "yingdan1:p072:e04"
+    ],
+    "refuge": [
+      "yingdan1:p019:e01",
+      "yingdan1:p081:e01"
+    ],
+    "survey": [
+      "yingdan1:p010:e07",
+      "yingdan1:p062:e02"
+    ]
+  },
+  "field_presence": {
+    "headword": 582,
+    "pronunciation": 582,
+    "parts_of_speech": 582,
+    "definition_zh": 582,
+    "exam_tag": 582,
+    "difficulty": 582,
+    "etymology": 582,
+    "example_en": 582,
+    "example_zh": 579,
+    "unit_id": 582,
+    "group_id": 582
+  },
+  "section_distribution": {
+    "prefix": 327,
+    "root": 255
+  },
+  "parts_of_speech_distribution": {
+    "介": 12,
+    "介+副": 1,
+    "代": 1,
+    "副": 14,
+    "動": 196,
+    "動+名": 1,
+    "名": 255,
+    "名+動": 19,
+    "形": 81,
+    "連": 2
+  },
+  "relation_distribution": {
+    "none": 1,
+    "反": 119,
+    "同": 379,
+    "近": 44,
+    "關": 39
+  },
+  "exam_tag_distribution": {
+    "托": 152,
+    "檢": 191,
+    "益": 143,
+    "研": 50,
+    "雅": 46
+  },
+  "difficulty_distribution": {
+    "1": 1,
+    "2": 23,
+    "3": 231,
+    "4": 245,
+    "5": 82
+  },
+  "pronunciations_with_backtick_stress": 544,
+  "quality_flag_counts": {
+    "category_inferred": 17,
+    "invalid_relation_label": 1,
+    "missing_example_zh": 3,
+    "orphan_translation": 1,
+    "source_gap_after_entry": 1
+  },
+  "entries_requiring_review": [
+    {
+      "entry_id": "yingdan1:p018:e08",
+      "headword": "disguise",
+      "flags": [
+        "missing_example_zh",
+        "orphan_translation",
+        "source_gap_after_entry"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e01",
+      "headword": "refuge",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e02",
+      "headword": "regard",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e03",
+      "headword": "register",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e04",
+      "headword": "regret",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e05",
+      "headword": "rehearse",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e06",
+      "headword": "reinforce",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e07",
+      "headword": "relic",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p019:e08",
+      "headword": "reluctant",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e01",
+      "headword": "remain",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e02",
+      "headword": "repay",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e03",
+      "headword": "reproduce",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e04",
+      "headword": "rescue",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e05",
+      "headword": "research",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e06",
+      "headword": "retrieve",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e07",
+      "headword": "return",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e08",
+      "headword": "reveal",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p020:e09",
+      "headword": "reward",
+      "flags": [
+        "category_inferred"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p060:e08",
+      "headword": "advise",
+      "flags": [
+        "missing_example_zh"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p064:e07",
+      "headword": "conceive",
+      "flags": [
+        "missing_example_zh"
+      ]
+    },
+    {
+      "entry_id": "yingdan1:p082:e03",
+      "headword": "progress",
+      "flags": [
+        "invalid_relation_label"
+      ]
+    }
+  ]
+}

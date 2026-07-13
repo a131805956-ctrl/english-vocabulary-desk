@@ -1,0 +1,33 @@
+{
+  "name": "morpheme-desk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "set PORT=4174&& node --watch server/app.mjs",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test:server": "node --test server/*.test.mjs",
+    "test:ui": "vitest run",
+    "test": "npm run test:server && npm run test:ui",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "start": "node server/app.mjs"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "ts-fsrs": "5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.14",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
+    "concurrently": "10.0.3",
+    "typescript": "7.0.2",
+    "vite": "8.1.4",
+    "vitest": "4.1.10"
+  }
+}
