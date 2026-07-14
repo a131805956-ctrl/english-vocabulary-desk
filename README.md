@@ -61,6 +61,25 @@ App 會由本機 Node 服務代為連線，不讓瀏覽器直接呼叫模型，�
 
 若沒有指定模型、Hermes 尚未登入，或本機服務尚未啟動，文章面板會保留單字選擇並顯示可理解的連線錯誤。
 
+## Android APK（LAN 版）
+
+目前 Android 版以 Capacitor 包裝前端，單字資料、FSRS 進度、文章保存與 Hermes Agent 仍由電腦上的 Node 服務提供。手機與電腦需連同一個可信任的 Wi‑Fi，電腦服務需用 LAN 位址啟動：
+
+```powershell
+$env:HOST='0.0.0.0'
+$env:PORT='4176'
+npm start
+```
+
+以電腦的 Wi‑Fi IPv4 組成 APK 服務網址，例如 `http://192.168.0.196:4176`：
+
+```powershell
+$env:CAP_SERVER_URL='http://192.168.0.196:4176'
+npm run android:build
+```
+
+產物會在 `android/app/build/outputs/apk/debug/app-debug.apk`。這是個人 LAN 版，不要把 HTTP 服務或 4176 連接埠公開到網際網路；若要完全離線使用，需下一階段把 Node／SQLite 後端移植到 Android 本機。
+
 ## 資料安全
 
 - 詞庫：`data/generated/vocabulary.sqlite3`，App 只讀開啟。
