@@ -5,6 +5,7 @@ import type {
   ArticleLength,
   ArticleLevel,
   ArticleProvider,
+  HermesApiSettings,
   RangeDefinition,
   ReviewRating,
   ReviewResult,
@@ -135,4 +136,33 @@ export function deleteArticle(articleId: string): Promise<{ deleted: boolean; ar
     `/api/articles/${encodeURIComponent(articleId)}`,
     { method: 'DELETE' },
   );
+}
+
+export interface ApiSettingsSession {
+  token: string;
+  expiresAt: string;
+}
+
+export function authenticateApiSettings(password: string): Promise<ApiSettingsSession> {
+  return requestJson<ApiSettingsSession>('/api/settings/auth', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function getApiSettings(token: string): Promise<{ hermes: HermesApiSettings }> {
+  return requestJson<{ hermes: HermesApiSettings }>('/api/settings', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function saveApiSettings(
+  token: string,
+  input: { baseUrl: string; model: string; sessionKey: string; apiKey?: string },
+): Promise<{ hermes: HermesApiSettings }> {
+  return requestJson<{ hermes: HermesApiSettings }>('/api/settings', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ hermes: input }),
+  });
 }

@@ -9,6 +9,7 @@ const {
   DEFAULT_ARTICLE_TIMEOUT_MS,
   generateArticle,
 } = require('./articles.cjs');
+const { RuntimeAiConfig, RuntimeSettingsError } = require('./runtime-config.cjs');
 
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 
@@ -41,6 +42,7 @@ function createVocabServer(options = {}) {
   const hermesTimeoutMs = options.hermesTimeoutMs;
   const hermesCommand = options.hermesCommand;
   const runHermes = options.runHermes;
+  const runtimeAiConfig = options.runtimeAiConfig ?? new RuntimeAiConfig(options);
 
   const handler = async (request, response) => {
     setCommonHeaders(response);
@@ -64,6 +66,7 @@ function createVocabServer(options = {}) {
         hermesTimeoutMs,
         hermesCommand,
         runHermes,
+        runtimeAiConfig,
       });
       if (handled) return;
 
@@ -89,6 +92,7 @@ function createVocabServer(options = {}) {
     progress,
     catalogPath,
     progressPath,
+    runtimeAiConfig,
     listen(port = 4173, host = '127.0.0.1') {
       return new Promise((resolve, reject) => {
         const onError = (error) => {
@@ -143,9 +147,48 @@ async function handleApiRequest(context) {
     hermesTimeoutMs,
     hermesCommand,
     runHermes,
+    runtimeAiConfig = new RuntimeAiConfig(),
   } = context;
   const method = request.method ?? 'GET';
   const pathname = url.pathname;
+
+  if (method === 'POST' && pathname === '/api/settings/auth') {
+    const body = await readJson(request, maxBodyBytes);
+    if (typeof body.password !== 'string' || body.password.length === 0) {
+      throw new ApiError(400, 'INVALID_API_SETTINGS_PASSWORD', 'password is required');
+    }
+    const session = runtimeAiConfig.authenticate(body.password);
+    if (!session) {
+      throw new ApiError(401, 'API_SETTINGS_PASSWORD_INVALID', 'The API settings password is incorrect');
+    }
+    writeJson(response, 200, session);
+    return true;
+  }
+
+  if (pathname === '/api/settings' && (method === 'GET' || method === 'PUT')) {
+    try {
+      runtimeAiConfig.requireSession(readBearerToken(request));
+    } catch (error) {
+      if (error instanceof RuntimeSettingsError) {
+        throw new ApiError(error.status, error.code, error.message, error.details);
+      }
+      throw error;
+    }
+    if (method === 'GET') {
+      writeJson(response, 200, runtimeAiConfig.getPublicSettings());
+      return true;
+    }
+    const body = await readJson(request, maxBodyBytes);
+    try {
+      writeJson(response, 200, runtimeAiConfig.update(body));
+    } catch (error) {
+      if (error instanceof RuntimeSettingsError) {
+        throw new ApiError(error.status, error.code, error.message, error.details);
+      }
+      throw error;
+    }
+    return true;
+  }
 
   if (method === 'GET' && pathname === '/api/health') {
     writeJson(response, 200, {
@@ -199,6 +242,7 @@ async function handleApiRequest(context) {
         hermesTimeoutMs,
         hermesCommand,
         runHermes,
+        hermesGateway: runtimeAiConfig.getGateway(),
       });
       writeJson(response, 201, result);
     } catch (error) {
@@ -574,6 +618,13 @@ function safeDecode(value) {
   }
 }
 
+function readBearerToken(request) {
+  const header = request.headers.authorization;
+  if (typeof header !== 'string') return null;
+  const match = header.match(/^Bearer\s+([^\s]+)$/i);
+  return match?.[1] ?? null;
+}
+
 async function readJson(request, maxBytes) {
   const contentType = request.headers['content-type'] ?? '';
   if (!String(contentType).toLowerCase().startsWith('application/json')) {
@@ -671,8 +722,8 @@ function mimeType(filePath) {
 
 function setCommonHeaders(response) {
   response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.setHeader('X-Content-Type-Options', 'nosniff');
 }
 

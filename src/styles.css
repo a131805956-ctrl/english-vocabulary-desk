@@ -999,6 +999,77 @@ button:disabled {
   font-size: 13px;
 }
 
+.api-settings-editor {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f9fbfd;
+}
+
+.api-editor-heading h3 {
+  margin: 4px 0 6px;
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.api-editor-heading p:last-child {
+  margin: 0 0 14px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.api-editor-form {
+  display: grid;
+  gap: 12px;
+}
+
+.api-editor-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.api-editor-form input:not([type='checkbox']) {
+  min-height: 42px;
+  width: 100%;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.api-editor-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.api-editor-check input {
+  accent-color: var(--morph);
+}
+
+.api-editor-error,
+.api-editor-notice {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.api-editor-error {
+  color: #a13838;
+}
+
+.api-editor-notice {
+  color: #267151;
+}
+
 .range-tree {
   flex: 1;
   overflow-y: auto;

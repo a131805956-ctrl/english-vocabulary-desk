@@ -70,12 +70,15 @@ async function generateArticle(options) {
   const provider = input.provider === 'hermes'
     ? 'hermes'
     : resolveProvider(input.provider, validateLocalBaseUrl(input.baseUrl));
+  const hermesGateway = provider === 'hermes' ? options.hermesGateway : null;
   const content = provider === 'hermes'
     ? await callHermesAgent({
       prompt: buildHermesPrompt(messages),
       runHermes: options.runHermes,
       command: options.hermesCommand,
       timeoutMs: options.hermesTimeoutMs ?? DEFAULT_HERMES_TIMEOUT_MS,
+      gateway: hermesGateway,
+      fetchImpl: options.fetchImpl,
     })
     : await callModelProvider({
       baseUrl: input.baseUrl,
@@ -97,8 +100,12 @@ async function generateArticle(options) {
       questions: generated.questions,
     },
     meta: {
-      provider: provider === 'hermes' ? 'hermes-agent' : provider,
-      model: provider === 'hermes' ? 'Hermes Agent default' : input.model,
+      provider: provider === 'hermes'
+        ? (hermesGateway ? 'hermes-gateway' : 'hermes-agent')
+        : provider,
+      model: provider === 'hermes'
+        ? (hermesGateway?.model || 'Hermes Agent default')
+        : input.model,
       generatedAt: new Date().toISOString(),
     },
   };
@@ -366,7 +373,10 @@ function buildHermesPrompt(messages) {
   ].join('\n');
 }
 
-async function callHermesAgent({ prompt, runHermes, command, timeoutMs }) {
+async function callHermesAgent({ prompt, runHermes, command, timeoutMs, gateway, fetchImpl }) {
+  if (gateway?.baseUrl) {
+    return callHermesGateway({ prompt, gateway, fetchImpl, timeoutMs });
+  }
   if (typeof runHermes === 'function') {
     const output = await runHermes({ prompt, timeoutMs });
     if (typeof output !== 'string') {
@@ -375,6 +385,90 @@ async function callHermesAgent({ prompt, runHermes, command, timeoutMs }) {
     return output;
   }
   return invokeHermes({ prompt, command, timeoutMs });
+}
+
+async function callHermesGateway({ prompt, gateway, fetchImpl, timeoutMs }) {
+  if (typeof fetchImpl !== 'function') {
+    throw new ArticleError(500, 'FETCH_UNAVAILABLE', 'This Node runtime does not provide fetch');
+  }
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000) {
+    throw new Error('hermesTimeoutMs must be an integer from 1 to 300000');
+  }
+  const endpoint = buildHermesGatewayEndpoint(gateway.baseUrl);
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  if (gateway.apiKey) headers.Authorization = `Bearer ${gateway.apiKey}`;
+  if (gateway.sessionKey) headers['X-Hermes-Session-Key'] = gateway.sessionKey;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  let payload;
+  try {
+    response = await fetchImpl(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: gateway.model || 'hermes',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.65,
+        response_format: { type: 'json_object' },
+      }),
+      signal: controller.signal,
+      redirect: 'error',
+    });
+    try {
+      payload = await response.json();
+    } catch {
+      throw new ArticleError(
+        502,
+        'HERMES_GATEWAY_INVALID_RESPONSE',
+        'Hermes Gateway returned a non-JSON response',
+      );
+    }
+  } catch (error) {
+    if (error instanceof ArticleError) throw error;
+    if (controller.signal.aborted) {
+      throw new ArticleError(
+        504,
+        'HERMES_GATEWAY_TIMEOUT',
+        `Hermes Gateway did not respond within ${timeoutMs} ms`,
+      );
+    }
+    throw new ArticleError(
+      502,
+      'HERMES_GATEWAY_CONNECTION_FAILED',
+      'Could not connect to the Hermes Gateway',
+      { cause: safeCause(error) },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!response.ok) {
+    throw new ArticleError(
+      502,
+      'HERMES_GATEWAY_ERROR',
+      'Hermes Gateway rejected the generation request',
+      {
+        upstreamStatus: response.status,
+        upstreamMessage: extractUpstreamMessage(payload),
+      },
+    );
+  }
+  return extractAssistantContent('openai', payload);
+}
+
+function buildHermesGatewayEndpoint(baseUrl) {
+  const endpoint = new URL(baseUrl);
+  let pathname = endpoint.pathname.replace(/\/+$/, '');
+  if (!pathname.endsWith('/v1/chat/completions')) {
+    pathname = pathname.endsWith('/v1')
+      ? `${pathname}/chat/completions`
+      : `${pathname}/v1/chat/completions`;
+  }
+  endpoint.pathname = pathname.replace(/^\/\//, '/');
+  return endpoint;
 }
 
 function invokeHermes({ prompt, command = process.env.HERMES_COMMAND || 'hermes', timeoutMs }) {

@@ -5,6 +5,14 @@ export type ArticleLevel = 'beginner' | 'intermediate' | 'advanced';
 export type ArticleLength = 'short' | 'medium' | 'long';
 export type ArticleProvider = 'auto' | 'hermes';
 
+export interface HermesApiSettings {
+  baseUrl: string;
+  model: string;
+  sessionKey: string;
+  apiKeyConfigured: boolean;
+  apiKeyMasked: string | null;
+}
+
 export interface RangeDefinition {
   id: string;
   kind: 'all' | 'source' | 'section' | 'unit' | 'group' | string;

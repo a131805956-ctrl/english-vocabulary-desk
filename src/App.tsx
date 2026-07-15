@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createSession, getRanges, getSummary, recordReview } from './api';
 import { ArticlePanel } from './components/ArticlePanel';
+import { ApiSettingsEditor } from './components/ApiSettingsEditor';
 import { Flashcard } from './components/Flashcard';
 import { RangeDrawer } from './components/RangeDrawer';
 import { RatingDock } from './components/RatingDock';
@@ -598,6 +599,7 @@ function UtilityPanel({
             </label>
             {aiProvider === 'hermes' ? (
               <div className="hermes-setting-note">
+                <ApiSettingsEditor />
                 <b>使用 Hermes Agent 的預設模型</b>
                 <span>文章只會傳入選取的單字；呼叫時會停用 Hermes 的檔案、終端、瀏覽與技能工具。</span>
               </div>
