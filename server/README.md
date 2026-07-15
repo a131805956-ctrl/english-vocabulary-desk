@@ -20,6 +20,9 @@ The default URL is `http://127.0.0.1:4173`. Optional environment variables:
 - `HERMES_API_URL`, `HERMES_API_KEY`, `HERMES_API_MODEL`, `HERMES_SESSION_KEY`
   (optional Hermes API Server settings; they stay on the computer-side server)
 
+For the Android LAN build, run `..\start-android-lan.cmd` from this project;
+it starts the same server on `0.0.0.0:4176`.
+
 When `dist/` exists, the same server also serves the built web app with an
 `index.html` fallback.
 
