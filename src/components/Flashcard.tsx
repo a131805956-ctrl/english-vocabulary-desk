@@ -86,7 +86,9 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
           type="button"
           className={`flashcard ${flipped ? 'is-flipped' : ''}`}
           style={dragStyle}
-          aria-label={flipped ? '顯示單字正面' : '顯示答案'}
+          aria-label={flipped
+            ? `顯示單字正面：${card.displayHeadword}`
+            : `顯示答案：${card.displayHeadword}`}
           disabled={disabled}
           onClick={() => {
             if (suppressClick.current) {
