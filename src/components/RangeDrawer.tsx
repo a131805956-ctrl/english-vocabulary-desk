@@ -22,6 +22,7 @@ interface RangeDrawerProps {
   onOrderChange: (order: SessionOrder) => void;
   onModeChange: (mode: Exclude<SessionMode, 'problems'>) => void;
   onNewLimitChange: (limit: number) => void;
+  onClearSelection: () => void;
   onClose: () => void;
   onStart: () => void;
 }
@@ -40,6 +41,7 @@ export function RangeDrawer({
   onOrderChange,
   onModeChange,
   onNewLimitChange,
+  onClearSelection,
   onClose,
   onStart,
 }: RangeDrawerProps) {
@@ -71,6 +73,10 @@ export function RangeDrawer({
     return ranges.some((range) => range.parentId === section.id && (
       matchesQuery(range) || ranges.some((child) => child.parentId === range.id && matchesQuery(child))
     ));
+  });
+  const selectedRangeDefinitions = normalizedSelectedIds.flatMap((rangeId) => {
+    const range = ranges.find((item) => item.id === rangeId);
+    return range ? [range] : [];
   });
 
   const handleRangeToggle = (rangeId: string) => {
@@ -149,6 +155,7 @@ export function RangeDrawer({
           <label>
             <span>{mode === 'today' ? '本輪上限' : '每輪張數'}</span>
             <select
+              name="range-limit"
               value={limit === null ? 'all' : String(limit)}
               onChange={(event) => onLimitChange(event.target.value === 'all' ? null : Number(event.target.value))}
             >
@@ -161,7 +168,7 @@ export function RangeDrawer({
           {mode === 'today' && (
             <label>
               <span>最多新字</span>
-              <select value={newLimit} onChange={(event) => onNewLimitChange(Number(event.target.value))}>
+              <select name="range-new-limit" value={newLimit} onChange={(event) => onNewLimitChange(Number(event.target.value))}>
                 <option value="0">0 張</option>
                 <option value="10">10 張</option>
                 <option value="20">20 張</option>
@@ -172,7 +179,7 @@ export function RangeDrawer({
           )}
           <label>
             <span>出題順序</span>
-            <select value={order} onChange={(event) => onOrderChange(event.target.value as SessionOrder)}>
+            <select name="range-order" value={order} onChange={(event) => onOrderChange(event.target.value as SessionOrder)}>
               <option value="source">照單字書</option>
               <option value="shuffle">隨機混合</option>
             </select>
@@ -199,6 +206,36 @@ export function RangeDrawer({
           </button>
         </div>
 
+        <div className="range-selection-summary" aria-live="polite">
+          <div className="range-selection-heading">
+            <span>目前選取</span>
+            <b>{normalizedSelectedIds.includes('all') ? '全部單字' : `${normalizedSelectedIds.length} 個範圍`}</b>
+            <button
+              className="text-button"
+              type="button"
+              onClick={onClearSelection}
+              disabled={normalizedSelectedIds.length === 0}
+            >
+              清除選取
+            </button>
+          </div>
+          {selectedRangeDefinitions.length > 0 && (
+            <div className="range-selection-chips">
+              {selectedRangeDefinitions.map((range) => (
+                <button
+                  className="range-selection-chip"
+                  type="button"
+                  key={range.id}
+                  onClick={() => normalizedSelectedIds.length === 1 ? onClearSelection() : handleRangeToggle(range.id)}
+                  aria-label={`移除範圍：${compactRangeName(range.name)}`}
+                >
+                  <span>{compactRangeName(range.name)}</span><b aria-hidden="true">×</b>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="range-tree" aria-label="可選單字範圍">
           {all && (
             <RangeCheckbox
@@ -218,13 +255,19 @@ export function RangeDrawer({
             return (
               <details className="range-branch" key={section.id} open>
                 <summary>
+                  <span className="disclosure" aria-hidden="true">⌄</span>
+                  <span className="range-summary-copy">
+                    <b>{compactRangeName(section.name)}</b>
+                    <span>{section.lexemeCount}</span>
+                  </span>
+                </summary>
+                <div className="range-branch-choice">
                   <RangeCheckbox
                     range={section}
                     checked={selectedIds.includes(section.id)}
                     onToggle={handleRangeToggle}
                   />
-                  <span className="disclosure" aria-hidden="true">⌄</span>
-                </summary>
+                </div>
                 <div className="unit-list">
                   {visibleUnits.map((unit) => {
                     const childRanges = ranges.filter((range) => range.parentId === unit.id && (
@@ -237,15 +280,21 @@ export function RangeDrawer({
                     return (
                       <details className="unit-branch" key={unit.id} open={Boolean(normalizedQuery) || undefined}>
                         <summary>
+                          <span className="unit-summary-copy">
+                            <b>{compactRangeName(unit.name)}</b>
+                            <span>{unit.lexemeCount}</span>
+                            {visibleChildRanges.length > 0 && <small className="group-count">
+                              {levelBatchCount > 0 ? `${levelBatchCount} 個隨機群組` : `${visibleChildRanges.length} 組`}
+                            </small>}
+                          </span>
+                        </summary>
+                        <div className="unit-branch-choice">
                           <RangeCheckbox
                             range={unit}
                             checked={selectedIds.includes(unit.id)}
                             onToggle={handleRangeToggle}
                           />
-                          {visibleChildRanges.length > 0 && <span className="group-count">
-                            {levelBatchCount > 0 ? `${levelBatchCount} 個隨機群組` : `${visibleChildRanges.length} 組`}
-                          </span>}
-                        </summary>
+                        </div>
                         {visibleChildRanges.length > 0 && (
                           <div className="group-list">
                             {levelBatchCount > 0 && (
@@ -322,6 +371,7 @@ function RangeCheckbox({
   return (
     <label className={`range-option ${emphasized ? 'is-emphasized' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
+        name="study-range"
         type="checkbox"
         checked={checked}
         disabled={disabled}

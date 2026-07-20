@@ -5,6 +5,11 @@ export interface StudyPreset {
   order: SessionOrder;
 }
 
+/** Return an intentionally empty draft so the user can choose a fresh scope. */
+export function clearPendingRangeSelection(): string[] {
+  return [];
+}
+
 export function getStudyPresetForRange(
   rangeId: string,
 ): StudyPreset | null {
