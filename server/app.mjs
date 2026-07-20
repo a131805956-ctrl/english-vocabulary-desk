@@ -12,6 +12,12 @@ if (isMain) {
     catalogPath: process.env.VOCAB_DB_PATH,
     progressPath: process.env.PROGRESS_DB_PATH,
     distDir: process.env.DIST_DIR,
+    apiEditPassword: process.env.API_EDIT_PASSWORD,
+    hermesApiUrl: process.env.HERMES_API_URL,
+    hermesApiKey: process.env.HERMES_API_KEY,
+    hermesApiModel: process.env.HERMES_API_MODEL,
+    hermesSessionKey: process.env.HERMES_SESSION_KEY,
+    corsOrigin: process.env.CORS_ORIGIN,
   });
 
   try {
@@ -19,6 +25,7 @@ if (isMain) {
     console.log(`Vocabulary app running at http://${host}:${address.port}`);
     console.log(`Catalog (read-only): ${app.catalogPath}`);
     console.log(`Progress: ${app.progressPath}`);
+    console.log(`Hermes Gateway: ${app.runtimeAiConfig.getGateway() ? 'configured' : 'CLI fallback'}`);
   } catch (error) {
     console.error('Unable to start vocabulary app:', error);
     await app.close();

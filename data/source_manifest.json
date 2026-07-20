@@ -75,6 +75,22 @@
           "note": "標題位於缺頁；依第 36、37 頁現存 re- 單字的解碼欄位推定。"
         }
       ]
+    },
+    {
+      "id": "ceec-108",
+      "title": "高中單字 LEVEL 2–6",
+      "collection": "大考中心高中英文參考詞彙表（111學年度起適用）",
+      "kind": "standard_csv",
+      "csv_path": "imports/ceec-108-level-2-to-6.csv",
+      "section": "高中單字",
+      "level_batches": {
+        "enabled": true,
+        "batch_size": 40,
+        "seed": "ceec-108-level-batches-v1"
+      },
+      "enabled": true,
+      "source_url": "https://www.ceec.edu.tw/xmdoc?xsmsid=0K213553204833715309",
+      "attribution": "僅供非營利使用；轉載請註明大學入學考試中心。"
     }
   ]
 }

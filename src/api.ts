@@ -5,6 +5,7 @@ import type {
   ArticleLength,
   ArticleLevel,
   ArticleProvider,
+  HermesApiSettings,
   RangeDefinition,
   ReviewRating,
   ReviewResult,
@@ -16,6 +17,14 @@ import type {
 
 interface ApiErrorPayload {
   error?: { code?: string; message?: string };
+}
+
+const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
+
+export function resolveApiUrl(url: string, baseUrl = configuredApiBaseUrl): string {
+  const normalizedBase = baseUrl.trim().replace(/\/+$/, '');
+  if (!normalizedBase || /^https?:\/\//i.test(url)) return url;
+  return `${normalizedBase}/${url.replace(/^\/+/, '')}`;
 }
 
 export class ApiRequestError extends Error {
@@ -31,7 +40,7 @@ export class ApiRequestError extends Error {
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetch(resolveApiUrl(url), {
     ...init,
     headers: {
       Accept: 'application/json',
@@ -135,4 +144,33 @@ export function deleteArticle(articleId: string): Promise<{ deleted: boolean; ar
     `/api/articles/${encodeURIComponent(articleId)}`,
     { method: 'DELETE' },
   );
+}
+
+export interface ApiSettingsSession {
+  token: string;
+  expiresAt: string;
+}
+
+export function authenticateApiSettings(password: string): Promise<ApiSettingsSession> {
+  return requestJson<ApiSettingsSession>('/api/settings/auth', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function getApiSettings(token: string): Promise<{ hermes: HermesApiSettings }> {
+  return requestJson<{ hermes: HermesApiSettings }>('/api/settings', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function saveApiSettings(
+  token: string,
+  input: { baseUrl: string; model: string; sessionKey: string; apiKey?: string },
+): Promise<{ hermes: HermesApiSettings }> {
+  return requestJson<{ hermes: HermesApiSettings }>('/api/settings', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ hermes: input }),
+  });
 }

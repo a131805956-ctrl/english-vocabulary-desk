@@ -19,6 +19,15 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+    <script>
+      // The design-capture helper is intentionally loaded only for an explicit
+      // Figma capture URL. Normal study sessions stay entirely local.
+      if (window.location.hash.includes('figmacapture=')) {
+        const capture = document.createElement('script');
+        capture.src = 'https://mcp.figma.com/mcp/html-to-design/capture.js';
+        capture.async = true;
+        document.head.append(capture);
+      }
+    </script>
   </body>
 </html>

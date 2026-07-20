@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ApiRequestError,
   deleteArticle,
@@ -17,6 +17,26 @@ import type {
 
 const MAX_WORDS = 12;
 const DEFAULT_WORDS = 8;
+
+export function addVisibleWordsToSelection(
+  currentIds: readonly string[],
+  visibleIds: readonly string[],
+  maximum = MAX_WORDS,
+): string[] {
+  const next = [...new Set(currentIds)].slice(0, maximum);
+  for (const lexemeId of visibleIds) {
+    if (next.length >= maximum) break;
+    if (!next.includes(lexemeId)) next.push(lexemeId);
+  }
+  return next;
+}
+
+export function isArchiveActionLocked(
+  openingId: string | null,
+  pendingDeleteId: string | null,
+): boolean {
+  return openingId !== null || pendingDeleteId !== null;
+}
 
 interface ArticlePanelProps {
   cards: StudyCard[];
@@ -44,7 +64,9 @@ export function ArticlePanel({
   const [archive, setArchive] = useState<ArticleArchiveItem[]>([]);
   const [archiveLoading, setArchiveLoading] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingDeleteRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const configured = provider === 'hermes' || Boolean(baseUrl.trim() && model.trim());
@@ -64,6 +86,7 @@ export function ArticlePanel({
     });
     setResult(null);
     setError(null);
+    setConfirmingDeleteId(null);
     // A compact signature resets the selection only when the study scope changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardSignature]);
@@ -104,6 +127,7 @@ export function ArticlePanel({
 
   const toggleWord = (lexemeId: string) => {
     setNotice('');
+    setConfirmingDeleteId(null);
     if (selectedIds.includes(lexemeId)) {
       setSelectedIds(selectedIds.filter((id) => id !== lexemeId));
       return;
@@ -115,11 +139,34 @@ export function ArticlePanel({
     setSelectedIds([...selectedIds, lexemeId]);
   };
 
+  const selectVisibleWords = () => {
+    const visibleIds = visibleCards.map((card) => card.lexemeId);
+    const next = addVisibleWordsToSelection(selectedIds, visibleIds);
+    const selectedVisible = visibleIds.filter((lexemeId) => selectedIds.includes(lexemeId)).length;
+    setConfirmingDeleteId(null);
+    setSelectedIds(next);
+
+    if (selectedVisible === visibleIds.length) {
+      setNotice('目前篩選的單字已全數選取。');
+    } else if (next.length >= MAX_WORDS) {
+      setNotice(`已加入可見單字；最多保留 ${MAX_WORDS} 個。`);
+    } else {
+      setNotice(`已加入 ${next.length - selectedIds.length} 個可見單字。`);
+    }
+  };
+
+  const clearSelectedWords = () => {
+    setConfirmingDeleteId(null);
+    setSelectedIds([]);
+    setNotice('已清除文章候選單字。');
+  };
+
   const handleGenerate = async () => {
     if (!configured || selectedIds.length < 3 || generating) return;
     setGenerating(true);
     setError(null);
     setNotice('');
+    setConfirmingDeleteId(null);
     try {
       const next = await generateArticle({
         provider,
@@ -141,9 +188,10 @@ export function ArticlePanel({
   };
 
   const openSavedArticle = async (articleId: string) => {
-    if (openingId || deletingId) return;
+    if (pendingDeleteRef.current || isArchiveActionLocked(openingId, pendingDeleteId)) return;
     setOpeningId(articleId);
     setError(null);
+    setConfirmingDeleteId(null);
     try {
       const saved = await getArticle(articleId);
       setResult({
@@ -163,11 +211,16 @@ export function ArticlePanel({
   };
 
   const removeSavedArticle = async (articleId: string) => {
-    if (deletingId !== articleId) {
-      setDeletingId(articleId);
+    if (pendingDeleteRef.current || isArchiveActionLocked(openingId, pendingDeleteId)) return;
+    if (confirmingDeleteId !== articleId) {
+      setConfirmingDeleteId(articleId);
       setNotice('再按一次「確認刪除」才會永久移除文章。');
       return;
     }
+
+    pendingDeleteRef.current = articleId;
+    setPendingDeleteId(articleId);
+    setConfirmingDeleteId(null);
     setError(null);
     try {
       await deleteArticle(articleId);
@@ -177,8 +230,15 @@ export function ArticlePanel({
     } catch (reason) {
       setError(articleErrorMessage(reason));
     } finally {
-      setDeletingId(null);
+      pendingDeleteRef.current = null;
+      setPendingDeleteId(null);
     }
+  };
+
+  const cancelDelete = () => {
+    if (pendingDeleteRef.current || pendingDeleteId) return;
+    setConfirmingDeleteId(null);
+    setNotice('已取消刪除。');
   };
 
   const copyArticle = async () => {
@@ -221,7 +281,11 @@ export function ArticlePanel({
         </div>
       </div>
 
-      <section className="article-index" aria-labelledby="article-index-title">
+      <section
+        className="article-index"
+        aria-labelledby="article-index-title"
+        aria-busy={archiveLoading || isArchiveActionLocked(openingId, pendingDeleteId)}
+      >
         <div className="article-index-heading">
           <div>
             <span className="eyebrow">SAVED READING</span>
@@ -232,14 +296,16 @@ export function ArticlePanel({
         {archive.length > 0 ? (
           <div className="article-index-list">
             {archive.map((item) => {
-              const confirming = deletingId === item.articleId;
+              const confirming = confirmingDeleteId === item.articleId;
+              const deleting = pendingDeleteId === item.articleId;
+              const archiveLocked = isArchiveActionLocked(openingId, pendingDeleteId);
               return (
                 <article className="article-index-item" key={item.articleId}>
                   <button
                     className="article-index-open"
                     type="button"
                     onClick={() => void openSavedArticle(item.articleId)}
-                    disabled={openingId !== null || deletingId !== null}
+                    disabled={archiveLocked}
                     aria-label={`開啟文章：${item.title}`}
                   >
                     <span className="article-index-date">{formatArchiveTime(item.createdAt)}</span>
@@ -248,14 +314,27 @@ export function ArticlePanel({
                       {item.usedWords.map((word) => <span key={word} lang="en">{word}</span>)}
                     </span>
                   </button>
-                  <button
-                    className={confirming ? 'article-delete-button is-confirm' : 'article-delete-button'}
-                    type="button"
-                    onClick={() => void removeSavedArticle(item.articleId)}
-                    disabled={openingId !== null || (deletingId !== null && !confirming)}
-                  >
-                    {confirming ? '確認刪除' : '刪除'}
-                  </button>
+                  <div className="article-index-actions" role="group" aria-label={`文章操作：${item.title}`}>
+                    <button
+                      className={confirming ? 'article-delete-button is-confirm' : 'article-delete-button'}
+                      type="button"
+                      onClick={() => void removeSavedArticle(item.articleId)}
+                      disabled={archiveLocked || (confirmingDeleteId !== null && !confirming)}
+                      aria-busy={deleting}
+                      aria-label={deleting
+                        ? `正在刪除文章：${item.title}`
+                        : confirming
+                          ? `確認永久刪除文章：${item.title}`
+                          : `刪除文章：${item.title}`}
+                    >
+                      {deleting ? '刪除中…' : confirming ? '確認刪除' : '刪除'}
+                    </button>
+                    {confirming && !pendingDeleteId && (
+                      <button className="text-button" type="button" onClick={cancelDelete}>
+                        取消
+                      </button>
+                    )}
+                  </div>
                 </article>
               );
             })}
@@ -271,26 +350,48 @@ export function ArticlePanel({
             <span>01</span>
             <h3 id="article-words-title">選擇要練的字</h3>
           </div>
-          <b>{selectedIds.length} / {MAX_WORDS}</b>
+          <b id="article-selection-status" aria-live="polite" aria-atomic="true">
+            {selectedIds.length} / {MAX_WORDS}
+          </b>
         </div>
         {cards.length > 12 && (
           <label className="article-search">
             <span className="sr-only">搜尋這輪單字</span>
             <input
               type="search"
+              name="article-word-search"
+              autoComplete="off"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setConfirmingDeleteId(null);
+              }}
               placeholder="搜尋英文或中文意思"
             />
           </label>
         )}
-        <div className="word-chip-list article-word-list" aria-label="這輪文章候選單字">
+        <div className="article-selection-actions" role="group" aria-label="候選單字操作">
+          <button className="text-button" type="button" onClick={selectVisibleWords} disabled={visibleCards.length === 0}>
+            選取目前篩選
+          </button>
+          <button className="text-button" type="button" onClick={clearSelectedWords} disabled={selectedIds.length === 0}>
+            清除選取
+          </button>
+        </div>
+        <div
+          className="word-chip-list article-word-list"
+          role="group"
+          aria-label="這輪文章候選單字"
+          aria-describedby="article-selection-status"
+        >
           {visibleCards.map((card) => {
             const selected = selectedIds.includes(card.lexemeId);
             return (
               <label className={selected ? 'article-word-chip is-selected' : 'article-word-chip'} key={card.lexemeId}>
                 <input
                   type="checkbox"
+                  name="article-word"
+                  value={card.lexemeId}
                   checked={selected}
                   onChange={() => toggleWord(card.lexemeId)}
                 />
@@ -313,7 +414,15 @@ export function ArticlePanel({
         <div className="article-options">
           <label>
             <span>英文程度</span>
-            <select value={level} onChange={(event) => setLevel(event.target.value as ArticleLevel)}>
+            <select
+              name="article-level"
+              autoComplete="off"
+              value={level}
+              onChange={(event) => {
+                setLevel(event.target.value as ArticleLevel);
+                setConfirmingDeleteId(null);
+              }}
+            >
               <option value="beginner">入門 · A2</option>
               <option value="intermediate">中階 · B1–B2</option>
               <option value="advanced">進階 · C1</option>
@@ -321,7 +430,15 @@ export function ArticlePanel({
           </label>
           <label>
             <span>文章長度</span>
-            <select value={length} onChange={(event) => setLength(event.target.value as ArticleLength)}>
+            <select
+              name="article-length"
+              autoComplete="off"
+              value={length}
+              onChange={(event) => {
+                setLength(event.target.value as ArticleLength);
+                setConfirmingDeleteId(null);
+              }}
+            >
               <option value="short">短 · 約 120 字</option>
               <option value="medium">中 · 約 220 字</option>
               <option value="long">長 · 約 350 字</option>
@@ -338,6 +455,7 @@ export function ArticlePanel({
         type="button"
         onClick={() => void handleGenerate()}
         disabled={!configured || selectedIds.length < 3 || generating}
+        aria-describedby="article-selection-status"
       >
         {generating ? '本機模型正在寫作…' : result ? '用同一組字重新生成' : '生成練習文章'}
       </button>

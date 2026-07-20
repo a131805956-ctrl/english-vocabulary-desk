@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createSession, getRanges, getSummary, recordReview } from './api';
 import { ArticlePanel } from './components/ArticlePanel';
+import { ApiSettingsEditor } from './components/ApiSettingsEditor';
 import { Flashcard } from './components/Flashcard';
 import { RangeDrawer } from './components/RangeDrawer';
 import { RatingDock } from './components/RatingDock';
 import { SessionHeader } from './components/SessionHeader';
 import { SessionLedger } from './components/SessionLedger';
 import { SideNav, type NavTarget } from './components/SideNav';
+import { displaySectionName } from './card-context';
 import { compactRangeName, sanitizeSelection, toggleRangeSelection } from './range-utils';
 import { loadPreferences, savePreferences } from './storage';
 import type {
@@ -22,6 +24,15 @@ import type {
 } from './types';
 
 type Panel = 'article' | 'stats' | 'settings' | null;
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
 
 export function App() {
   const [preferences, setPreferences] = useState(loadPreferences);
@@ -48,6 +59,7 @@ export function App() {
   const [aiProvider, setAiProvider] = useState<ArticleProvider>(preferences.ai.provider);
   const cardShownAt = useRef(Date.now());
   const cardRef = useRef<HTMLButtonElement>(null);
+  const focusBeforeModal = useRef<HTMLElement | null>(null);
 
   const currentCard = session?.cards[currentIndex] ?? null;
   const sessionTotal = session?.cards.length ?? 0;
@@ -67,6 +79,7 @@ export function App() {
       : rangeLabel;
   const available = session?.total ?? summary?.scope.lexemeCount ?? 0;
   const activeNav: NavTarget = rangeOpen ? 'ranges' : panel ?? 'study';
+  const modalKey = rangeOpen ? 'ranges' : panel;
 
   useEffect(() => {
     let ignore = false;
@@ -114,6 +127,53 @@ export function App() {
     return () => window.cancelAnimationFrame(frame);
   }, [currentCard, loading]);
 
+  useEffect(() => {
+    if (!modalKey) return;
+
+    const previousFocus = document.activeElement;
+    focusBeforeModal.current = previousFocus instanceof HTMLElement ? previousFocus : null;
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+    const previousOverscroll = body.style.overscrollBehavior;
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+
+    const focusDialog = () => {
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
+      const closeButton = dialog?.querySelector<HTMLElement>('button[aria-label^="關閉"]');
+      closeButton?.focus();
+    };
+    const frame = window.requestAnimationFrame(focusDialog);
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        .filter((element) => element.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const current = document.activeElement;
+      if (!dialog.contains(current) || (!event.shiftKey && current === last)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && current === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    };
+    document.addEventListener('keydown', trapFocus);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', trapFocus);
+      body.style.overflow = previousOverflow;
+      body.style.overscrollBehavior = previousOverscroll;
+      focusBeforeModal.current?.focus();
+    };
+  }, [modalKey]);
+
   const speakCurrent = () => {
     if (!currentCard || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -132,6 +192,10 @@ export function App() {
 
   const rateCurrent = async (rating: ReviewRating) => {
     if (!currentCard || !session || reviewing || completed) return;
+    if (!hasFlipped) {
+      setLiveMessage(`先翻面確認 ${currentCard.displayHeadword}，再選擇知道或不知道`);
+      return;
+    }
     const card = currentCard;
     const responseMs = Math.min(3_600_000, Date.now() - cardShownAt.current);
     setReviewing(true);
@@ -279,9 +343,10 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#study-main">跳到學習內容</a>
       <SideNav active={activeNav} onSelect={handleNavigation} />
 
-      <main className="study-main">
+      <main className="study-main" id="study-main" tabIndex={-1}>
         <SessionHeader
           rangeLabel={sessionLabel}
           current={completed ? sessionTotal : Math.min(currentIndex + 1, sessionTotal)}
@@ -319,7 +384,7 @@ export function App() {
           ) : currentCard ? (
             <>
               <p className="card-context">
-                <span>{currentCard.primary.section === 'root' ? '字根' : '字首'}</span>
+                <span>{displaySectionName(currentCard.primary.section)}</span>
                 <i aria-hidden="true">/</i>
                 <span>{currentCard.primary.unitTitle ?? '未分類'}</span>
                 {currentCard.primary.groupLabel && (
@@ -336,8 +401,9 @@ export function App() {
                 onSpeak={speakCurrent}
               />
               <RatingDock
-                disabled={!currentCard}
+                disabled={!currentCard || !hasFlipped}
                 reviewing={reviewing}
+                hint={hasFlipped ? '也可以直接左右滑' : '翻面確認答案後即可評分'}
                 onRate={(rating) => void rateCurrent(rating)}
               />
               <div className="shortcut-strip" aria-label="鍵盤快捷鍵">
@@ -591,13 +657,18 @@ function UtilityPanel({
             <p>選擇電腦上的模型服務，或交給 Hermes Agent 的既有登入。設定只存在這台瀏覽器，不保存 API 金鑰。</p>
             <label>
               <span>文章生成器</span>
-              <select value={aiProvider} onChange={(event) => onAiProviderChange(event.target.value as ArticleProvider)}>
+              <select
+                name="article-provider"
+                value={aiProvider}
+                onChange={(event) => onAiProviderChange(event.target.value as ArticleProvider)}
+              >
                 <option value="auto">Ollama／OpenAI 相容本機服務</option>
                 <option value="hermes">Hermes Agent</option>
               </select>
             </label>
             {aiProvider === 'hermes' ? (
               <div className="hermes-setting-note">
+                <ApiSettingsEditor />
                 <b>使用 Hermes Agent 的預設模型</b>
                 <span>文章只會傳入選取的單字；呼叫時會停用 Hermes 的檔案、終端、瀏覽與技能工具。</span>
               </div>
@@ -607,6 +678,8 @@ function UtilityPanel({
                   <span>本機 AI 位址</span>
                   <input
                     type="url"
+                    name="local-ai-url"
+                    autoComplete="url"
                     value={aiBaseUrl}
                     onChange={(event) => onAiBaseUrlChange(event.target.value)}
                     placeholder="http://127.0.0.1:11434"
@@ -616,6 +689,8 @@ function UtilityPanel({
                   <span>模型名稱</span>
                   <input
                     type="text"
+                    name="local-ai-model"
+                    autoComplete="off"
                     value={aiModel}
                     onChange={(event) => onAiModelChange(event.target.value)}
                     placeholder="例如 llama3.2"
@@ -638,16 +713,55 @@ function StatsPanel({
   summary: ReviewSummary | null;
   onPracticeProblems: () => void;
 }) {
-  if (!summary || summary.totalReviews === 0) {
-    return <div className="panel-empty"><p>完成幾張卡後，這裡會出現正確率、反應時間與錯題排行。</p></div>;
-  }
+  if (!summary) return <div className="panel-empty"><p>正在整理這個範圍的學習資料。</p></div>;
+  const recentDays = summary.daily.slice(-7);
+  const maxDaily = Math.max(1, ...recentDays.map((day) => day.total));
+  const coverage = summary.scope.lexemeCount > 0
+    ? Math.round((summary.reviewedLexemes / summary.scope.lexemeCount) * 100)
+    : 0;
+
   return (
     <div className="stats-panel">
       <div className="stats-summary">
         <span><b>{summary.totalReviews}</b>回答次數</span>
         <span><b>{summary.accuracy === null ? '—' : `${Math.round(summary.accuracy * 100)}%`}</b>知道比例</span>
-        <span><b>{summary.averageResponseMs === null ? '—' : `${(summary.averageResponseMs / 1000).toFixed(1)}s`}</b>平均反應</span>
+        <span><b>{summary.streakDays}</b>連續學習天數</span>
+        <span><b>{summary.dueNow}</b>現在到期</span>
       </div>
+      <section className="stats-activity" aria-labelledby="activity-title">
+        <header>
+          <div>
+            <p className="eyebrow">LEARNING RHYTHM</p>
+            <h3 id="activity-title">最近 7 個學習日</h3>
+          </div>
+          <b>{coverage}% 已覆蓋</b>
+        </header>
+        {recentDays.length > 0 ? (
+          <div className="activity-bars" role="list" aria-label="最近學習量">
+            {recentDays.map((day) => {
+              const height = Math.max(10, Math.round((day.total / maxDaily) * 100));
+              return (
+                <div
+                  className="activity-bar-item"
+                  key={day.date}
+                  role="listitem"
+                  aria-label={`${formatStatsDate(day.date)}：${day.total} 次作答，其中 ${day.good} 次知道`}
+                >
+                  <span className="activity-bar-value">{day.total}</span>
+                  <span className="activity-bar" style={{ height: `${height}%` }} />
+                  <span>{formatStatsDate(day.date)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="stats-empty">完成第一張卡後，這裡會記下你的學習節奏。</p>
+        )}
+        <p className="stats-insight">
+          已複習 {summary.reviewedLexemes} / {summary.scope.lexemeCount} 個單字；
+          {summary.averageResponseMs === null ? '再回答幾張即可看平均反應時間。' : `平均反應 ${(summary.averageResponseMs / 1000).toFixed(1)} 秒。`}
+        </p>
+      </section>
       <div className="problem-list">
         <div className="problem-heading">
           <h3>需要加強</h3>
@@ -669,6 +783,12 @@ function StatsPanel({
       </div>
     </div>
   );
+}
+
+function formatStatsDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  if (!Number.isFinite(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-TW', { month: 'numeric', day: 'numeric' }).format(date);
 }
 
 function describeRanges(ranges: RangeDefinition[], ids: string[]): string {

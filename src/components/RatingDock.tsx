@@ -3,10 +3,11 @@ import type { ReviewRating } from '../types';
 interface RatingDockProps {
   disabled: boolean;
   reviewing: boolean;
+  hint: string;
   onRate: (rating: ReviewRating) => void;
 }
 
-export function RatingDock({ disabled, reviewing, onRate }: RatingDockProps) {
+export function RatingDock({ disabled, reviewing, hint, onRate }: RatingDockProps) {
   return (
     <div className="rating-dock" aria-label="回答評分">
       <button
@@ -22,7 +23,7 @@ export function RatingDock({ disabled, reviewing, onRate }: RatingDockProps) {
         </span>
         <kbd>A</kbd>
       </button>
-      <p>{reviewing ? '正在保存…' : '也可以直接左右滑'}</p>
+      <p aria-live="polite">{reviewing ? '正在保存…' : hint}</p>
       <button
         className="rating-button rating-good"
         type="button"

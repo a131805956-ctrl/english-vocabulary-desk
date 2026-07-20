@@ -36,8 +36,8 @@ test('local vocabulary API', async (t) => {
     assert.equal(result.body.status, 'ok');
     assert.equal(result.body.node, process.version);
     assert.equal(result.body.catalog.readOnly, true);
-    assert.equal(result.body.catalog.lexemeCount, 574);
-    assert.equal(result.body.catalog.rangeCount, 117);
+    assert.equal(result.body.catalog.lexemeCount, 5196);
+    assert.equal(result.body.catalog.rangeCount, 259);
     assert.equal(result.body.progress.writable, true);
     assert.equal(result.body.progress.schemaVersion, '3');
     assert.equal(result.body.progress.scheduler.algorithm, 'fsrs-6');
@@ -52,7 +52,7 @@ test('local vocabulary API', async (t) => {
     const result = await requestJson(baseUrl, '/api/ranges');
     assert.equal(result.response.status, 200);
     ranges = result.body.ranges;
-    assert.equal(ranges.length, 117);
+    assert.equal(ranges.length, 259);
     assert.deepEqual(Object.keys(ranges[0]), [
       'id',
       'kind',
@@ -63,7 +63,73 @@ test('local vocabulary API', async (t) => {
       'lexemeCount',
     ]);
     assert.equal(ranges[0].id, 'all');
-    assert.equal(ranges[0].lexemeCount, 574);
+    assert.equal(ranges[0].lexemeCount, 5196);
+  });
+
+  await t.test('CEEC high-school scope serves random 40-card groups', async () => {
+    const highSchool = ranges.find((range) => range.id.startsWith('section:ceec-108:'));
+    assert.ok(highSchool, 'CEEC high-school range should be available');
+    assert.equal(highSchool.entryCount, 5116);
+
+    const result = await requestJson(baseUrl, '/api/session', {
+      method: 'POST',
+      body: {
+        rangeIds: [highSchool.id],
+        limit: 40,
+        order: 'shuffle',
+      },
+    });
+    assert.equal(result.response.status, 201);
+    assert.equal(result.body.total, 5116);
+    assert.equal(result.body.cards.length, 40);
+    assert.equal(new Set(result.body.cards.map((card) => card.lexemeId)).size, 40);
+  });
+
+  await t.test('CEEC levels are listed from LEVEL 2 through LEVEL 6', () => {
+    const levelNames = ranges
+      .filter((range) => range.kind === 'unit' && range.parentId?.startsWith('section:ceec-108:'))
+      .map((range) => range.name);
+    assert.deepEqual(levelNames, [
+      '高中單字 UNIT 1｜LEVEL 2',
+      '高中單字 UNIT 2｜LEVEL 3',
+      '高中單字 UNIT 3｜LEVEL 4',
+      '高中單字 UNIT 4｜LEVEL 5',
+      '高中單字 UNIT 5｜LEVEL 6',
+    ]);
+  });
+
+  await t.test('CEEC levels expose stable 40-card batch ranges that can be combined', async () => {
+    const batches = ranges.filter((range) => range.kind === 'level_batch');
+    assert.ok(batches.length > 100, 'every LEVEL should be split into many batches');
+
+    const batchesByParent = new Map();
+    for (const range of batches) {
+      const list = batchesByParent.get(range.parentId) ?? [];
+      list.push(range);
+      batchesByParent.set(range.parentId, list);
+      assert.ok(range.lexemeCount > 0 && range.lexemeCount <= 40);
+    }
+    for (const levelBatches of batchesByParent.values()) {
+      levelBatches.slice(0, -1).forEach((range) => assert.equal(range.lexemeCount, 40));
+    }
+
+    const level2 = batches.find((range) => /LEVEL 2/.test(range.name));
+    const level3 = batches.find((range) => /LEVEL 3/.test(range.name));
+    assert.ok(level2 && level3, 'LEVEL 2 and LEVEL 3 batches should be selectable');
+
+    const result = await requestJson(baseUrl, '/api/session', {
+      method: 'POST',
+      body: { rangeIds: [level2.id, level3.id], limit: 80, order: 'source' },
+    });
+    assert.equal(result.response.status, 201);
+    assert.equal(result.body.total, level2.lexemeCount + level3.lexemeCount);
+    assert.equal(result.body.cards.length, level2.lexemeCount + level3.lexemeCount);
+    assert.equal(new Set(result.body.cards.map((card) => card.lexemeId)).size, result.body.total);
+  });
+
+  await t.test('CEEC high-school range is surfaced before affix sections', () => {
+    const sections = ranges.filter((range) => range.kind === 'section');
+    assert.equal(sections[0].id, 'section:ceec-108:高中單字');
   });
 
   let session;
@@ -79,7 +145,7 @@ test('local vocabulary API', async (t) => {
     assert.equal(result.response.status, 201);
     session = result.body;
     assert.match(session.sessionId, /^session:/);
-    assert.equal(session.total, 574);
+    assert.equal(session.total, 5196);
     assert.equal(session.cards.length, 12);
     assert.equal(session.mode, 'manual');
     assert.deepEqual(session.plan, { due: 0, new: 0, problems: 0 });
@@ -95,8 +161,8 @@ test('local vocabulary API', async (t) => {
       'review',
     ]);
     assert.equal(typeof card.primary.definitionZh, 'string');
-    assert.equal(typeof card.primary.exampleEn, 'string');
-    assert.match(card.primary.groupLabel, /｜/);
+    assert.ok(card.primary.exampleEn === null || typeof card.primary.exampleEn === 'string');
+    assert.ok(card.primary.groupLabel === null || typeof card.primary.groupLabel === 'string');
     assert.equal(card.review, null);
   });
 
@@ -287,7 +353,7 @@ test('FSRS session modes', async (t) => {
     });
     assert.equal(result.response.status, 201);
     assert.equal(result.body.mode, 'today');
-    assert.equal(result.body.total, 574);
+    assert.equal(result.body.total, 5196);
     assert.equal(result.body.cards.length, 20);
     assert.deepEqual(result.body.plan, { due: 0, new: 20, problems: 0 });
     assert.deepEqual(

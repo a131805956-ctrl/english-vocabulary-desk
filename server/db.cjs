@@ -158,6 +158,8 @@ class CatalogStore {
             WHEN 'group' THEN 4
             ELSE 5
           END,
+          CASE WHEN id LIKE '%:ceec-108:%' OR id = 'source:ceec-108' THEN 0 ELSE 1 END,
+          name COLLATE NOCASE,
           id
       `)
       .all()

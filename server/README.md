@@ -16,6 +16,12 @@ The default URL is `http://127.0.0.1:4173`. Optional environment variables:
 - `PROGRESS_DB_PATH`
 - `DIST_DIR`
 - `HERMES_COMMAND` (optional trusted path/name for the local Hermes executable)
+- `API_EDIT_PASSWORD` (optional; defaults to `morpheme-local`, six or more characters)
+- `HERMES_API_URL`, `HERMES_API_KEY`, `HERMES_API_MODEL`, `HERMES_SESSION_KEY`
+  (optional Hermes API Server settings; they stay on the computer-side server)
+
+For the Android LAN build, run `..\start-android-lan.cmd` from this project;
+it starts the same server on `0.0.0.0:4176`.
 
 When `dist/` exists, the same server also serves the built web app with an
 `index.html` fallback.
@@ -33,6 +39,9 @@ When `dist/` exists, the same server also serves the built web app with an
 - `GET /api/articles`
 - `GET /api/articles/:articleId`
 - `DELETE /api/articles/:articleId`
+- `POST /api/settings/auth` (password unlock; returns a short-lived bearer token)
+- `GET /api/settings` (bearer token required; API key is always masked)
+- `PUT /api/settings` (bearer token required; edits runtime Hermes settings)
 
 Create a union session:
 
@@ -141,6 +150,25 @@ keeps Hermes skills, terminal, file, browser, and other action tools out of the
 article request. The prompt is limited to the selected catalog vocabulary and a
 fixed JSON article contract. Hermes has a separate 120-second timeout; no key is
 accepted, saved, or sent by this API.
+
+To use the same Hermes API Server as Telegram, start Hermes' OpenAI-compatible
+API server/gateway and set its URL, key, and model either before starting this
+server or from the password-protected API editor in the app. For example:
+
+```powershell
+$env:API_EDIT_PASSWORD = 'choose-a-longer-local-password'
+$env:HERMES_API_URL = 'http://127.0.0.1:8642/v1'
+$env:HERMES_API_KEY = 'your-hermes-api-key'
+$env:HERMES_API_MODEL = 'hermes'
+$env:HERMES_SESSION_KEY = 'vocabulary-app'
+npm start
+```
+
+When `HERMES_API_URL` is configured, article requests use `POST
+/v1/chat/completions` with the optional bearer key and
+`X-Hermes-Session-Key`. If it is empty, the trusted local `hermes --oneshot`
+adapter remains the fallback. The runtime editor does not write the API key to
+disk; restarting the server reloads values from environment variables.
 
 Scheduling uses `ts-fsrs 5.4.1` with FSRS-6, 90% requested retention, the
 standard `1m`/`10m` learning steps, and a `10m` relearning step. `again` maps
