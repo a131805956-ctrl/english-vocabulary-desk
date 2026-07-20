@@ -52,14 +52,19 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
     };
 
     const finishPointer = (event: PointerEvent<HTMLButtonElement>) => {
-      if (!origin.current) return;
-      const elapsed = Math.max(1, performance.now() - origin.current.time);
-      const velocity = dragX / elapsed;
+      const dragOrigin = origin.current;
+      if (!dragOrigin) return;
+      // React may not have committed the final pointer-move state yet. Calculate
+      // from the pointer-up event so fast mobile swipes always use their true delta.
+      const finalDragX = event.clientX - dragOrigin.x;
+      if (Math.abs(finalDragX) > 8) suppressClick.current = true;
+      const elapsed = Math.max(1, performance.now() - dragOrigin.time);
+      const velocity = finalDragX / elapsed;
       const threshold = Math.max(72, event.currentTarget.offsetWidth * 0.22);
-      const shouldRate = Math.abs(dragX) >= threshold || Math.abs(velocity) >= 0.55;
+      const shouldRate = Math.abs(finalDragX) >= threshold || Math.abs(velocity) >= 0.55;
       origin.current = null;
       setDragX(0);
-      if (shouldRate && dragX !== 0) onRate(dragX > 0 ? 'good' : 'again');
+      if (shouldRate && finalDragX !== 0) onRate(finalDragX > 0 ? 'good' : 'again');
     };
 
     return (

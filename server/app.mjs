@@ -17,6 +17,7 @@ if (isMain) {
     hermesApiKey: process.env.HERMES_API_KEY,
     hermesApiModel: process.env.HERMES_API_MODEL,
     hermesSessionKey: process.env.HERMES_SESSION_KEY,
+    corsOrigin: process.env.CORS_ORIGIN,
   });
 
   try {

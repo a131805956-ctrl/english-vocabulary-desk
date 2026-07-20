@@ -110,3 +110,9 @@ npm run check
 這會執行 TypeScript 檢查、本機 API／排程／AI 整合測試、前端邏輯與 API contract 測試，以及正式版建置。
 
 瀏覽器驗證截圖存放在 `output/playwright/`。
+
+## LEVEL 隨機群組與 GitHub Pages
+
+CEEC LEVEL 2–6 會在每個 LEVEL 內以固定 seed 洗牌，再切成每組 40 個 lexeme；最後不足 40 個的群組保留原數量。範圍選擇器會把這些 `level_batch` 顯示在各 LEVEL 下，能同時勾選不同 LEVEL 的群組，API 會以 lexeme 聯集建立複習 session。
+
+GitHub Pages 只部署前端。請先閱讀 [`docs/GITHUB_PAGES_ARCHITECTURE.md`](docs/GITHUB_PAGES_ARCHITECTURE.md)，再設定 `VITE_API_BASE_URL` 與 `VITE_BASE_PATH` repository variables。Android 遠端網站建置請看 [`docs/ANDROID_GITHUB_PAGES.md`](docs/ANDROID_GITHUB_PAGES.md)。

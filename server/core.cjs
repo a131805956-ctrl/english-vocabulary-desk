@@ -43,9 +43,10 @@ function createVocabServer(options = {}) {
   const hermesCommand = options.hermesCommand;
   const runHermes = options.runHermes;
   const runtimeAiConfig = options.runtimeAiConfig ?? new RuntimeAiConfig(options);
+  const corsOrigin = options.corsOrigin ?? process.env.CORS_ORIGIN ?? '*';
 
   const handler = async (request, response) => {
-    setCommonHeaders(response);
+    setCommonHeaders(response, corsOrigin);
     if (request.method === 'OPTIONS') {
       response.writeHead(204);
       response.end();
@@ -720,8 +721,8 @@ function mimeType(filePath) {
   return types[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 }
 
-function setCommonHeaders(response) {
-  response.setHeader('Access-Control-Allow-Origin', '*');
+function setCommonHeaders(response, corsOrigin) {
+  response.setHeader('Access-Control-Allow-Origin', corsOrigin);
   response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.setHeader('X-Content-Type-Options', 'nosniff');

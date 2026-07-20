@@ -19,6 +19,14 @@ interface ApiErrorPayload {
   error?: { code?: string; message?: string };
 }
 
+const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
+
+export function resolveApiUrl(url: string, baseUrl = configuredApiBaseUrl): string {
+  const normalizedBase = baseUrl.trim().replace(/\/+$/, '');
+  if (!normalizedBase || /^https?:\/\//i.test(url)) return url;
+  return `${normalizedBase}/${url.replace(/^\/+/, '')}`;
+}
+
 export class ApiRequestError extends Error {
   status: number;
   code: string;
@@ -32,7 +40,7 @@ export class ApiRequestError extends Error {
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetch(resolveApiUrl(url), {
     ...init,
     headers: {
       Accept: 'application/json',

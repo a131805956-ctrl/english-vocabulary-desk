@@ -67,6 +67,45 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def partition_level_members(
+    entries: list[dict[str, Any]],
+    batch_size: int = 40,
+    seed: str = "level-batches-v1",
+) -> list[list[dict[str, Any]]]:
+    """Deterministically shuffle a LEVEL and partition it into review batches.
+
+    A lexeme can have multiple source entries. Those entries travel together so
+    the same card is never split across two selectable groups. The hash sort is
+    independent of input order and therefore remains stable across rebuilds.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero")
+
+    by_lexeme: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for entry in entries:
+        lexeme_id = str(entry.get("lexeme_id") or entry.get("canonical_term") or entry["id"])
+        by_lexeme[lexeme_id].append(entry)
+
+    ordered_lexemes = sorted(
+        by_lexeme,
+        key=lambda lexeme_id: hashlib.sha256(
+            f"{seed}\0{lexeme_id}".encode("utf-8")
+        ).hexdigest(),
+    )
+    for members in by_lexeme.values():
+        members.sort(key=lambda item: str(item["id"]))
+
+    batches: list[list[dict[str, Any]]] = []
+    for start in range(0, len(ordered_lexemes), batch_size):
+        lexeme_ids = ordered_lexemes[start : start + batch_size]
+        batches.append([
+            entry
+            for lexeme_id in lexeme_ids
+            for entry in by_lexeme[lexeme_id]
+        ])
+    return batches
+
+
 def resolve_source_path(relative: str) -> Path:
     return (ROOT / relative).resolve()
 
@@ -640,6 +679,7 @@ def parse_standard_csv_source(source: dict[str, Any]) -> dict[str, Any]:
             "markdown_sha256": sha256(csv_path), "pdf_sha256": "",
             "known_gaps": [],
             "checks": {"csv_data_rows": len(entries), "parsed_entry_count": len(entries)},
+            "level_batches": source.get("level_batches"),
         },
         "units": list(units.values()), "groups": list(groups.values()), "entries": entries,
     }
@@ -652,6 +692,7 @@ def build_ranges(
     entries: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     ranges: list[dict[str, Any]] = []
+    sources_by_id = {source["id"]: source for source in sources}
 
     def add(
         rid: str,
@@ -709,6 +750,23 @@ def build_ranges(
             f"section:{unit['source_id']}:{unit['section']}",
             members,
         )
+
+        batch_config = (sources_by_id.get(unit["source_id"]) or {}).get("level_batches") or {}
+        if batch_config.get("enabled") and members:
+            batch_size = int(batch_config.get("batch_size", 40))
+            seed = f"{batch_config.get('seed', 'level-batches-v1')}:{unit['id']}"
+            for batch_index, batch_members in enumerate(
+                partition_level_members(members, batch_size=batch_size, seed=seed),
+                start=1,
+            ):
+                unique_count = len({item["lexeme_id"] for item in batch_members})
+                add(
+                    f"range:{unit['id']}:level-batch-{batch_index:03d}",
+                    "level_batch",
+                    f"{unit['title_zh']}｜隨機組 {batch_index:02d}（{unique_count}）",
+                    f"range:{unit['id']}",
+                    batch_members,
+                )
 
     for group in groups:
         members = [item for item in entries if item.get("group_id") == group["id"]]

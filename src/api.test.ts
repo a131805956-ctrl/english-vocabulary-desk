@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createSession, generateArticle } from './api';
+import { createSession, generateArticle, resolveApiUrl } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -98,5 +98,23 @@ describe('client API contracts', () => {
       level: 'intermediate',
       length: 'short',
     });
+  });
+});
+
+describe('API origin resolution', () => {
+  it('keeps local relative API paths when no origin is configured', () => {
+    expect(resolveApiUrl('/api/ranges', '')).toBe('/api/ranges');
+  });
+
+  it('joins a GitHub Pages build to its separately hosted API origin', () => {
+    expect(resolveApiUrl('/api/ranges', 'https://vocab-api.example.com/')).toBe(
+      'https://vocab-api.example.com/api/ranges',
+    );
+  });
+
+  it('does not rewrite an already absolute URL', () => {
+    expect(resolveApiUrl('https://other.example.com/api', 'https://vocab-api.example.com')).toBe(
+      'https://other.example.com/api',
+    );
   });
 });
