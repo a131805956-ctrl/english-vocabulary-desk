@@ -86,9 +86,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
           type="button"
           className={`flashcard ${flipped ? 'is-flipped' : ''}`}
           style={dragStyle}
-          aria-label={flipped
-            ? `顯示單字正面：${card.displayHeadword}`
-            : `顯示答案：${card.displayHeadword}`}
+          aria-describedby="flashcard-instruction"
           disabled={disabled}
           onClick={() => {
             if (suppressClick.current) {
@@ -106,6 +104,9 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
             event.currentTarget.releasePointerCapture?.(event.pointerId);
           }}
         >
+          <span id="flashcard-instruction" className="sr-only">
+            點擊卡片翻面；也可以向左或向右滑動評分。
+          </span>
           <span className="morpheme-spine" aria-hidden="true" />
           <span className="flashcard-inner">
             <span className="card-face card-front" aria-hidden={flipped}>
