@@ -9,7 +9,12 @@ import { SessionHeader } from './components/SessionHeader';
 import { SessionLedger } from './components/SessionLedger';
 import { SideNav, type NavTarget } from './components/SideNav';
 import { displaySectionName } from './card-context';
-import { compactRangeName, sanitizeSelection, toggleRangeSelection } from './range-utils';
+import {
+  clearPendingRangeSelection,
+  compactRangeName,
+  sanitizeSelection,
+  toggleRangeSelection,
+} from './range-utils';
 import { loadPreferences, savePreferences } from './storage';
 import type {
   AppPreferences,
@@ -443,6 +448,7 @@ export function App() {
         onOrderChange={setDraftOrder}
         onModeChange={setDraftMode}
         onNewLimitChange={setDraftNewLimit}
+        onClearSelection={() => setDraftRangeIds(clearPendingRangeSelection())}
         onClose={() => setRangeOpen(false)}
         onStart={() => void startScope(
           draftRangeIds,

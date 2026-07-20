@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { addVisibleWordsToSelection, isArchiveActionLocked } from './ArticlePanel';
+import {
+  addVisibleWordsToSelection,
+  isArchiveActionLocked,
+  removeSelectedWord,
+  toggleVisibleWordsSelection,
+} from './ArticlePanel';
 
 describe('addVisibleWordsToSelection', () => {
   it('adds only visible candidates without exceeding the article word limit', () => {
@@ -29,5 +34,22 @@ describe('isArchiveActionLocked', () => {
     expect(isArchiveActionLocked(null, 'article:pending')).toBe(true);
     expect(isArchiveActionLocked('article:opening', null)).toBe(true);
     expect(isArchiveActionLocked(null, null)).toBe(false);
+  });
+});
+
+describe('article selection interactions', () => {
+  it('clears the visible subset when every visible word is already selected', () => {
+    expect(toggleVisibleWordsSelection(
+      ['lexeme:one', 'lexeme:two', 'lexeme:keep'],
+      ['lexeme:one', 'lexeme:two'],
+      12,
+    )).toEqual(['lexeme:keep']);
+  });
+
+  it('removes one selected word without changing the remaining order', () => {
+    expect(removeSelectedWord(
+      ['lexeme:one', 'lexeme:two', 'lexeme:three'],
+      'lexeme:two',
+    )).toEqual(['lexeme:one', 'lexeme:three']);
   });
 });

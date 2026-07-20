@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ApiRequestError,
   deleteArticle,
@@ -29,6 +29,24 @@ export function addVisibleWordsToSelection(
     if (!next.includes(lexemeId)) next.push(lexemeId);
   }
   return next;
+}
+
+export function toggleVisibleWordsSelection(
+  currentIds: readonly string[],
+  visibleIds: readonly string[],
+  maximum = MAX_WORDS,
+): string[] {
+  const current = [...new Set(currentIds)];
+  const visible = [...new Set(visibleIds)];
+  if (visible.length > 0 && visible.every((id) => current.includes(id))) {
+    const visibleSet = new Set(visible);
+    return current.filter((id) => !visibleSet.has(id));
+  }
+  return addVisibleWordsToSelection(current, visible, maximum);
+}
+
+export function removeSelectedWord(currentIds: readonly string[], lexemeId: string): string[] {
+  return currentIds.filter((id) => id !== lexemeId);
 }
 
 export function isArchiveActionLocked(
@@ -69,6 +87,8 @@ export function ArticlePanel({
   const pendingDeleteRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const archiveIndexRef = useRef<HTMLElement>(null);
+  const resultRef = useRef<HTMLElement>(null);
   const configured = provider === 'hermes' || Boolean(baseUrl.trim() && model.trim());
   const cardSignature = cards.map((card) => card.lexemeId).join('|');
 
@@ -108,6 +128,14 @@ export function ArticlePanel({
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (!result) return;
+    const frame = window.requestAnimationFrame(() => {
+      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [result]);
+
   const visibleCards = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return cards;
@@ -141,13 +169,14 @@ export function ArticlePanel({
 
   const selectVisibleWords = () => {
     const visibleIds = visibleCards.map((card) => card.lexemeId);
-    const next = addVisibleWordsToSelection(selectedIds, visibleIds);
     const selectedVisible = visibleIds.filter((lexemeId) => selectedIds.includes(lexemeId)).length;
+    const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    const next = toggleVisibleWordsSelection(selectedIds, visibleIds);
     setConfirmingDeleteId(null);
     setSelectedIds(next);
 
-    if (selectedVisible === visibleIds.length) {
-      setNotice('目前篩選的單字已全數選取。');
+    if (allVisibleSelected) {
+      setNotice('已取消目前篩選的單字。');
     } else if (next.length >= MAX_WORDS) {
       setNotice(`已加入可見單字；最多保留 ${MAX_WORDS} 個。`);
     } else {
@@ -159,6 +188,10 @@ export function ArticlePanel({
     setConfirmingDeleteId(null);
     setSelectedIds([]);
     setNotice('已清除文章候選單字。');
+  };
+
+  const scrollToArchive = () => {
+    archiveIndexRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleGenerate = async () => {
@@ -282,6 +315,7 @@ export function ArticlePanel({
       </div>
 
       <section
+        ref={archiveIndexRef}
         className="article-index"
         aria-labelledby="article-index-title"
         aria-busy={archiveLoading || isArchiveActionLocked(openingId, pendingDeleteId)}
@@ -372,12 +406,32 @@ export function ArticlePanel({
         )}
         <div className="article-selection-actions" role="group" aria-label="候選單字操作">
           <button className="text-button" type="button" onClick={selectVisibleWords} disabled={visibleCards.length === 0}>
-            選取目前篩選
+            {visibleCards.length > 0 && visibleCards.every((card) => selectedIds.includes(card.lexemeId))
+              ? '取消目前篩選'
+              : '選取目前篩選'}
           </button>
           <button className="text-button" type="button" onClick={clearSelectedWords} disabled={selectedIds.length === 0}>
             清除選取
           </button>
         </div>
+        {selectedCards.length > 0 && (
+          <div className="selected-word-strip" aria-label="已選文章單字">
+            <span>已選</span>
+            <div>
+              {selectedCards.map((card) => (
+                <button
+                  className="selected-word-chip"
+                  type="button"
+                  key={card.lexemeId}
+                  onClick={() => setSelectedIds((current) => removeSelectedWord(current, card.lexemeId))}
+                  aria-label={`移除單字：${card.displayHeadword}`}
+                >
+                  <span lang="en">{card.displayHeadword}</span><b aria-hidden="true">×</b>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div
           className="word-chip-list article-word-list"
           role="group"
@@ -462,7 +516,13 @@ export function ArticlePanel({
       {selectedIds.length < 3 && <p className="article-hint">至少再選 {3 - selectedIds.length} 個單字。</p>}
 
       {result && (
-        <ArticleResult result={result} selectedCards={selectedCards} onCopy={() => void copyArticle()} />
+        <ArticleResult
+          ref={resultRef}
+          result={result}
+          selectedCards={selectedCards}
+          onCopy={() => void copyArticle()}
+          onBackToArchive={scrollToArchive}
+        />
       )}
     </div>
   );
@@ -500,15 +560,12 @@ function formatArchiveTime(value: string): string {
   }).format(date);
 }
 
-function ArticleResult({
-  result,
-  selectedCards,
-  onCopy,
-}: {
+const ArticleResult = forwardRef<HTMLElement, {
   result: ArticleGenerationResult;
   selectedCards: StudyCard[];
   onCopy: () => void;
-}) {
+  onBackToArchive: () => void;
+}>(({ result, selectedCards, onCopy, onBackToArchive }, ref) => {
   const paragraphs = result.article.body.split(/\n{2,}/).filter(Boolean);
   const translation = result.article.translationZh?.split(/\n{2,}/).filter(Boolean) ?? [];
   const usedWords = result.article.usedWords.length > 0
@@ -516,13 +573,16 @@ function ArticleResult({
     : selectedCards.map((card) => card.displayHeadword);
 
   return (
-    <article className="generated-article" aria-labelledby="generated-article-title">
+    <article ref={ref} className="generated-article" aria-labelledby="generated-article-title">
       <header>
         <div>
           <p className="eyebrow">LOCAL AI READING</p>
           <h3 id="generated-article-title" lang="en">{result.article.title}</h3>
         </div>
-        <button className="quiet-button compact-button" type="button" onClick={onCopy}>複製</button>
+        <div className="generated-article-actions">
+          <button className="text-button" type="button" onClick={onBackToArchive}>歷史文章</button>
+          <button className="quiet-button compact-button" type="button" onClick={onCopy}>複製</button>
+        </div>
       </header>
       <div className="generated-copy" lang="en">
         {paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 12)}`}>{paragraph}</p>)}
@@ -550,4 +610,4 @@ function ArticleResult({
       <footer>{result.meta.provider} · {result.meta.model}</footer>
     </article>
   );
-}
+});

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clearPendingRangeSelection,
   estimateSelection,
   getStudyPresetForRange,
   getStudyPresetForSelection,
@@ -63,5 +64,11 @@ describe('range selection', () => {
     expect(sanitizeSelection(ranges, ['old:id', 'unit:2'])).toEqual(['unit:2']);
     expect(sanitizeSelection(ranges, ['old:id'])).toEqual(['all']);
     expect(sanitizeSelection(ranges, ['section:1', 'unit:1'])).toEqual(['section:1']);
+  });
+});
+
+describe('range selection reset', () => {
+  it('allows the drawer to clear all pending choices before a new selection', () => {
+    expect(clearPendingRangeSelection()).toEqual([]);
   });
 });
