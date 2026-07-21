@@ -222,10 +222,6 @@ export function App() {
 
   const rateCurrent = async (rating: ReviewRating) => {
     if (!currentCard || !session || reviewing || completed) return;
-    if (!hasFlipped) {
-      setLiveMessage(`先翻面確認 ${currentCard.displayHeadword}，再選擇知道或不知道`);
-      return;
-    }
     const card = currentCard;
     const responseMs = Math.min(3_600_000, Date.now() - cardShownAt.current);
     setReviewing(true);
@@ -431,9 +427,9 @@ export function App() {
                 onSpeak={speakCurrent}
               />
               <RatingDock
-                disabled={!currentCard || !hasFlipped}
+                disabled={!currentCard}
                 reviewing={reviewing}
-                hint={hasFlipped ? '也可以直接左右滑' : '翻面確認答案後即可評分'}
+                hint="左右滑或點按即可評分；點卡片可查看答案"
                 onRate={(rating) => void rateCurrent(rating)}
               />
               <div className="shortcut-strip" aria-label="鍵盤快捷鍵">

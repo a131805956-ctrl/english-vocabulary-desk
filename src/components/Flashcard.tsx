@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -24,21 +25,67 @@ interface DragOrigin {
   source: 'pointer' | 'touch';
 }
 
+const SWIPE_EXIT_MS = 190;
+
 export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
   function Flashcard(
     { card, flipped, disabled, onFlip, onRate, onSpeak },
     ref,
   ) {
     const [dragX, setDragX] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
     const origin = useRef<DragOrigin | null>(null);
     const suppressClick = useRef(false);
+    const settleTimer = useRef<number | null>(null);
     const tokens = parseEtymology(card.primary.etymology);
     const pronunciation = formatPronunciation(card.primary.pronunciation);
     const position = card.primary.partsOfSpeech.join(' · ');
     const dragStyle = {
       '--drag-x': `${dragX}px`,
-      '--drag-rotate': `${dragX / 45}deg`,
+      '--drag-rotate': `${dragX / 55}deg`,
+      '--drag-transition': isDragging
+        ? 'none'
+        : `transform ${SWIPE_EXIT_MS}ms cubic-bezier(0.16, 0.82, 0.24, 1), filter 160ms ease`,
     } as CSSProperties;
+
+    useEffect(() => () => {
+      if (settleTimer.current !== null) window.clearTimeout(settleTimer.current);
+    }, []);
+
+    useEffect(() => {
+      // The component is intentionally reused for the next card. Never carry
+      // the previous card's off-screen exit transform into the new card.
+      origin.current = null;
+      setDragX(0);
+      setIsDragging(false);
+    }, [card.lexemeId]);
+
+    const resetDrag = () => {
+      origin.current = null;
+      setIsDragging(false);
+      setDragX(0);
+    };
+
+    const finishDrag = (finalDragX: number, elapsedMs: number, width: number) => {
+      const rating = resolveSwipeRating(finalDragX, elapsedMs, width);
+      if (!rating) {
+        resetDrag();
+        return;
+      }
+
+      // Complete the full flight first, then let the parent persist and move
+      // to the next card. This keeps a fast flick visually complete instead
+      // of snapping back to the center before the card changes.
+      suppressClick.current = true;
+      origin.current = null;
+      setIsDragging(false);
+      setDragX(finalDragX > 0 ? Math.max(width * 1.25, 480) : -Math.max(width * 1.25, 480));
+      if (settleTimer.current !== null) window.clearTimeout(settleTimer.current);
+      settleTimer.current = window.setTimeout(() => {
+        settleTimer.current = null;
+        onRate(rating);
+      }, SWIPE_EXIT_MS);
+    };
 
     const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
       // Android WebView can deliver a touch gesture through TouchEvent rather
@@ -46,6 +93,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
       // fallback below own touch pointers so the two paths never double-rate.
       if (disabled || event.pointerType === 'touch' || event.pointerType === 'mouse' && event.button !== 0) return;
       origin.current = { x: event.clientX, time: performance.now(), source: 'pointer' };
+      setIsDragging(true);
       suppressClick.current = false;
       try {
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -68,14 +116,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
       // from the pointer-up event so fast mobile swipes always use their true delta.
       const finalDragX = event.clientX - dragOrigin.x;
       if (Math.abs(finalDragX) > 8) suppressClick.current = true;
-      origin.current = null;
-      setDragX(0);
-      const rating = resolveSwipeRating(
-        finalDragX,
-        performance.now() - dragOrigin.time,
-        event.currentTarget.offsetWidth,
-      );
-      if (rating) onRate(rating);
+      finishDrag(finalDragX, performance.now() - dragOrigin.time, event.currentTarget.offsetWidth);
     };
 
     const handleTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
@@ -83,6 +124,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
       const touch = event.changedTouches[0];
       if (!touch) return;
       origin.current = { x: touch.clientX, time: performance.now(), source: 'touch' };
+      setIsDragging(true);
       suppressClick.current = false;
     };
 
@@ -104,14 +146,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
       if (!touch) return;
       const finalDragX = touch.clientX - dragOrigin.x;
       if (Math.abs(finalDragX) > 8) suppressClick.current = true;
-      origin.current = null;
-      setDragX(0);
-      const rating = resolveSwipeRating(
-        finalDragX,
-        performance.now() - dragOrigin.time,
-        event.currentTarget.offsetWidth,
-      );
-      if (rating) onRate(rating);
+      finishDrag(finalDragX, performance.now() - dragOrigin.time, event.currentTarget.offsetWidth);
     };
 
     return (
@@ -146,8 +181,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
           onPointerMove={handlePointerMove}
           onPointerUp={finishPointer}
           onPointerCancel={(event) => {
-            if (origin.current?.source === 'pointer') origin.current = null;
-            setDragX(0);
+            if (origin.current?.source === 'pointer') resetDrag();
             try {
               event.currentTarget.releasePointerCapture?.(event.pointerId);
             } catch {
@@ -158,8 +192,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
           onTouchMove={handleTouchMove}
           onTouchEnd={finishTouch}
           onTouchCancel={() => {
-            if (origin.current?.source === 'touch') origin.current = null;
-            setDragX(0);
+            if (origin.current?.source === 'touch') resetDrag();
           }}
         >
           <span id="flashcard-instruction" className="sr-only">
@@ -174,7 +207,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
                 <span className="pronunciation" lang="en">{pronunciation}</span>
                 {position && <span className="part-of-speech">{position}</span>}
               </span>
-              <span className="flip-hint">先在心裡回答，再點卡翻面</span>
+              <span className="flip-hint">點卡查看答案，或直接滑動／點按評分</span>
             </span>
 
             <span className="card-face card-back" aria-hidden={!flipped}>

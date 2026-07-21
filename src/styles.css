@@ -32,6 +32,7 @@ html {
   min-width: 320px;
   min-height: 100%;
   background: var(--canvas);
+  overflow-x: hidden;
 }
 
 body {
@@ -41,10 +42,12 @@ body {
   margin: 0;
   background: var(--canvas);
   overscroll-behavior-y: none;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 button,
@@ -399,11 +402,14 @@ button:disabled {
   position: relative;
   width: min(100%, 720px);
   perspective: 1500px;
+  /* Contain the exit flight so a right swipe cannot pan the whole WebView. */
+  overflow: hidden;
 }
 
 .flashcard {
   --drag-x: 0px;
   --drag-rotate: 0deg;
+  --drag-transition: transform 190ms cubic-bezier(0.16, 0.82, 0.24, 1), filter 160ms ease;
   position: relative;
   width: 100%;
   min-height: clamp(390px, 55vh, 520px);
@@ -420,7 +426,8 @@ button:disabled {
   -webkit-user-select: none;
   transform: translateX(var(--drag-x)) rotate(var(--drag-rotate));
   transform-origin: 6px 50%;
-  transition: transform 160ms ease, filter 160ms ease;
+  transition: var(--drag-transition);
+  will-change: transform;
 }
 
 .flashcard:not(:disabled):hover {

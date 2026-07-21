@@ -15,8 +15,11 @@ export function resolveSwipeRating(
   }
   const elapsed = Math.max(1, elapsedMs);
   const velocity = deltaX / elapsed;
-  const threshold = Math.max(72, cardWidth * 0.22);
-  const shouldRate = Math.abs(deltaX) >= threshold || Math.abs(velocity) >= 0.55;
+  // A deliberate slow drag should commit well before the edge of a phone.
+  // Fast flicks get a lower velocity gate, while the distance gate still
+  // protects accidental taps.
+  const threshold = Math.max(56, cardWidth * 0.16);
+  const shouldRate = Math.abs(deltaX) >= threshold || Math.abs(velocity) >= 0.35;
   if (!shouldRate || deltaX === 0) return null;
   return deltaX > 0 ? 'good' : 'again';
 }
