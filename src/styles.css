@@ -427,6 +427,9 @@ button:disabled {
   transform: translateX(var(--drag-x)) rotate(var(--drag-rotate));
   transform-origin: 6px 50%;
   transition: var(--drag-transition);
+}
+
+.flashcard.is-dragging {
   will-change: transform;
 }
 

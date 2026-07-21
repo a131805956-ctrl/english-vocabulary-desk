@@ -419,6 +419,7 @@ export function App() {
               </p>
               <Flashcard
                 ref={cardRef}
+                key={currentCard.lexemeId}
                 card={currentCard}
                 flipped={flipped}
                 disabled={reviewing}

@@ -166,7 +166,7 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
         <button
           ref={ref}
           type="button"
-          className={`flashcard ${flipped ? 'is-flipped' : ''}`}
+          className={`flashcard ${flipped ? 'is-flipped' : ''} ${isDragging ? 'is-dragging' : ''}`}
           style={dragStyle}
           aria-describedby="flashcard-instruction"
           disabled={disabled}
