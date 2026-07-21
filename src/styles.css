@@ -413,7 +413,11 @@ button:disabled {
   border-radius: 4px 20px 20px 4px;
   background: transparent;
   cursor: pointer;
-  touch-action: pan-y;
+  /* Own the horizontal gesture in Android WebView; TouchEvent fallback in
+     Flashcard.tsx prevents the page scroller from cancelling a fast swipe. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   transform: translateX(var(--drag-x)) rotate(var(--drag-rotate));
   transform-origin: 6px 50%;
   transition: transform 160ms ease, filter 160ms ease;

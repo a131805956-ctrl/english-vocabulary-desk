@@ -4,8 +4,10 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent,
+  type TouchEvent,
 } from 'react';
 import type { ReviewRating, StudyCard } from '../types';
+import { resolveSwipeRating } from '../swipe-utils';
 
 interface FlashcardProps {
   card: StudyCard;
@@ -19,6 +21,7 @@ interface FlashcardProps {
 interface DragOrigin {
   x: number;
   time: number;
+  source: 'pointer' | 'touch';
 }
 
 export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
@@ -38,14 +41,21 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
     } as CSSProperties;
 
     const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
-      if (disabled || event.pointerType === 'mouse' && event.button !== 0) return;
-      origin.current = { x: event.clientX, time: performance.now() };
+      // Android WebView can deliver a touch gesture through TouchEvent rather
+      // than completing the PointerEvent sequence. Let the explicit touch
+      // fallback below own touch pointers so the two paths never double-rate.
+      if (disabled || event.pointerType === 'touch' || event.pointerType === 'mouse' && event.button !== 0) return;
+      origin.current = { x: event.clientX, time: performance.now(), source: 'pointer' };
       suppressClick.current = false;
-      event.currentTarget.setPointerCapture(event.pointerId);
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // A few embedded WebViews expose pointer events without pointer capture.
+      }
     };
 
     const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
-      if (!origin.current || disabled) return;
+      if (!origin.current || origin.current.source !== 'pointer' || event.pointerType === 'touch' || disabled) return;
       const nextX = event.clientX - origin.current.x;
       if (Math.abs(nextX) > 8) suppressClick.current = true;
       setDragX(nextX);
@@ -53,18 +63,55 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
 
     const finishPointer = (event: PointerEvent<HTMLButtonElement>) => {
       const dragOrigin = origin.current;
-      if (!dragOrigin) return;
+      if (!dragOrigin || dragOrigin.source !== 'pointer' || event.pointerType === 'touch') return;
       // React may not have committed the final pointer-move state yet. Calculate
       // from the pointer-up event so fast mobile swipes always use their true delta.
       const finalDragX = event.clientX - dragOrigin.x;
       if (Math.abs(finalDragX) > 8) suppressClick.current = true;
-      const elapsed = Math.max(1, performance.now() - dragOrigin.time);
-      const velocity = finalDragX / elapsed;
-      const threshold = Math.max(72, event.currentTarget.offsetWidth * 0.22);
-      const shouldRate = Math.abs(finalDragX) >= threshold || Math.abs(velocity) >= 0.55;
       origin.current = null;
       setDragX(0);
-      if (shouldRate && finalDragX !== 0) onRate(finalDragX > 0 ? 'good' : 'again');
+      const rating = resolveSwipeRating(
+        finalDragX,
+        performance.now() - dragOrigin.time,
+        event.currentTarget.offsetWidth,
+      );
+      if (rating) onRate(rating);
+    };
+
+    const handleTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
+      if (disabled || origin.current) return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      origin.current = { x: touch.clientX, time: performance.now(), source: 'touch' };
+      suppressClick.current = false;
+    };
+
+    const handleTouchMove = (event: TouchEvent<HTMLButtonElement>) => {
+      const dragOrigin = origin.current;
+      if (!dragOrigin || dragOrigin.source !== 'touch' || disabled) return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      event.preventDefault();
+      const nextX = touch.clientX - dragOrigin.x;
+      if (Math.abs(nextX) > 8) suppressClick.current = true;
+      setDragX(nextX);
+    };
+
+    const finishTouch = (event: TouchEvent<HTMLButtonElement>) => {
+      const dragOrigin = origin.current;
+      if (!dragOrigin || dragOrigin.source !== 'touch') return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      const finalDragX = touch.clientX - dragOrigin.x;
+      if (Math.abs(finalDragX) > 8) suppressClick.current = true;
+      origin.current = null;
+      setDragX(0);
+      const rating = resolveSwipeRating(
+        finalDragX,
+        performance.now() - dragOrigin.time,
+        event.currentTarget.offsetWidth,
+      );
+      if (rating) onRate(rating);
     };
 
     return (
@@ -99,9 +146,20 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
           onPointerMove={handlePointerMove}
           onPointerUp={finishPointer}
           onPointerCancel={(event) => {
-            origin.current = null;
+            if (origin.current?.source === 'pointer') origin.current = null;
             setDragX(0);
-            event.currentTarget.releasePointerCapture?.(event.pointerId);
+            try {
+              event.currentTarget.releasePointerCapture?.(event.pointerId);
+            } catch {
+              // Ignore a capture that the embedded WebView did not grant.
+            }
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={finishTouch}
+          onTouchCancel={() => {
+            if (origin.current?.source === 'touch') origin.current = null;
+            setDragX(0);
           }}
         >
           <span id="flashcard-instruction" className="sr-only">

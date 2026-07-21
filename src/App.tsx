@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { QueueStrategy, TextToSpeech } from '@capacitor-community/text-to-speech';
 import { createSession, getRanges, getSummary, recordReview } from './api';
 import { ArticlePanel } from './components/ArticlePanel';
 import { ApiSettingsEditor } from './components/ApiSettingsEditor';
@@ -180,13 +181,37 @@ export function App() {
   }, [modalKey]);
 
   const speakCurrent = () => {
-    if (!currentCard || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(currentCard.displayHeadword);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.88;
-    window.speechSynthesis.speak(utterance);
-    setLiveMessage(`播放 ${currentCard.displayHeadword} 的英文發音`);
+    if (!currentCard) return;
+    const word = currentCard.displayHeadword;
+    void (async () => {
+      try {
+        // Capacitor uses Android's installed system TTS engine in the APK and
+        // its Web implementation falls back to browser speechSynthesis.
+        await TextToSpeech.speak({
+          text: word,
+          lang: 'en-US',
+          rate: 0.88,
+          pitch: 1,
+          volume: 1,
+          queueStrategy: QueueStrategy.Flush,
+        });
+        setLiveMessage(`播放 ${word} 的英文發音`);
+        return;
+      } catch {
+        // Keep the old browser path as a safety net for unsupported WebViews.
+      }
+
+      if (!('speechSynthesis' in window)) {
+        setLiveMessage('這台裝置沒有可用的英文語音引擎');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.88;
+      window.speechSynthesis.speak(utterance);
+      setLiveMessage(`播放 ${word} 的英文發音`);
+    })();
   };
 
   const flipCurrent = () => {

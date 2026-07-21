@@ -59,6 +59,8 @@ App 會由本機 Node 服務代為連線，不讓瀏覽器直接呼叫模型，�
 
 也可在「設定」把文章生成器改成 **Hermes Agent**。它會使用 Hermes 現有的登入與預設模型，不需要位址、模型名稱或 API 金鑰；文章呼叫會明確停用 Hermes 的檔案、終端、瀏覽和技能工具，只要求回傳文章 JSON。
 
+要編輯 Hermes 位址、模型、Session Key 或金鑰，請看 [`docs/API_SETTINGS_GUIDE.md`](docs/API_SETTINGS_GUIDE.md)。
+
 若沒有指定模型、Hermes 尚未登入，或本機服務尚未啟動，文章面板會保留單字選擇並顯示可理解的連線錯誤。
 
 ## Android APK（LAN 版）
