@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createSession, generateArticle, resolveApiUrl } from './api';
+import {
+  createSession,
+  generateArticle,
+  resolveApiUrl,
+  resolveConfiguredApiBase,
+} from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -102,6 +107,20 @@ describe('client API contracts', () => {
 });
 
 describe('API origin resolution', () => {
+  it('uses the app base path for a same-origin subpath deployment', () => {
+    expect(resolveConfiguredApiBase(undefined, '/eng-vocabulary/')).toBe('/eng-vocabulary');
+  });
+
+  it('keeps root deployments on the root API path', () => {
+    expect(resolveConfiguredApiBase(undefined, '/')).toBe('');
+  });
+
+  it('prefers an explicitly configured API origin', () => {
+    expect(
+      resolveConfiguredApiBase('https://vocab-api.example.com/', '/eng-vocabulary/'),
+    ).toBe('https://vocab-api.example.com');
+  });
+
   it('keeps local relative API paths when no origin is configured', () => {
     expect(resolveApiUrl('/api/ranges', '')).toBe('/api/ranges');
   });
