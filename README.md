@@ -118,3 +118,5 @@ npm run check
 CEEC LEVEL 2–6 會在每個 LEVEL 內以固定 seed 洗牌，再切成每組 40 個 lexeme；最後不足 40 個的群組保留原數量。範圍選擇器會把這些 `level_batch` 顯示在各 LEVEL 下，能同時勾選不同 LEVEL 的群組，API 會以 lexeme 聯集建立複習 session。
 
 GitHub Pages 只部署前端。請先閱讀 [`docs/GITHUB_PAGES_ARCHITECTURE.md`](docs/GITHUB_PAGES_ARCHITECTURE.md)，再設定 `VITE_API_BASE_URL` 與 `VITE_BASE_PATH` repository variables。Android 遠端網站建置請看 [`docs/ANDROID_GITHUB_PAGES.md`](docs/ANDROID_GITHUB_PAGES.md)。
+
+Tailscale Funnel 固定部署在 `/eng-vocabulary/` 時，使用 `npm run build:funnel` 建置。前端資源與同源 API 會自動沿用這個子路徑，再由 Funnel 轉送到本機 `4174` 服務。

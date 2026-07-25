@@ -8,6 +8,7 @@
     "dev:api": "set PORT=4174&& node --watch server/app.mjs",
     "dev:web": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "build:funnel": "node scripts/build-funnel.mjs",
     "typecheck": "tsc --noEmit",
     "test:server": "node --test server/*.test.mjs",
     "test:ui": "vitest run",

@@ -19,7 +19,22 @@ interface ApiErrorPayload {
   error?: { code?: string; message?: string };
 }
 
-const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
+export function resolveConfiguredApiBase(
+  apiBaseUrl: string | undefined,
+  appBaseUrl: string,
+): string {
+  const explicitBase = (apiBaseUrl ?? '').trim();
+  if (explicitBase) return explicitBase.replace(/\/+$/, '');
+
+  const normalizedAppBase = appBaseUrl.trim();
+  if (!normalizedAppBase || normalizedAppBase === '/') return '';
+  return normalizedAppBase.replace(/\/+$/, '');
+}
+
+const configuredApiBaseUrl = resolveConfiguredApiBase(
+  import.meta.env.VITE_API_BASE_URL,
+  import.meta.env.BASE_URL,
+);
 
 export function resolveApiUrl(url: string, baseUrl = configuredApiBaseUrl): string {
   const normalizedBase = baseUrl.trim().replace(/\/+$/, '');
