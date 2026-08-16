@@ -120,3 +120,7 @@ CEEC LEVEL 2–6 會在每個 LEVEL 內以固定 seed 洗牌，再切成每組 4
 GitHub Pages 只部署前端。請先閱讀 [`docs/GITHUB_PAGES_ARCHITECTURE.md`](docs/GITHUB_PAGES_ARCHITECTURE.md)，再設定 `VITE_API_BASE_URL` 與 `VITE_BASE_PATH` repository variables。Android 遠端網站建置請看 [`docs/ANDROID_GITHUB_PAGES.md`](docs/ANDROID_GITHUB_PAGES.md)。
 
 Tailscale Funnel 固定部署在 `/eng-vocabulary/` 時，使用 `npm run build:funnel` 建置。前端資源與同源 API 會自動沿用這個子路徑，再由 Funnel 轉送到本機 `4174` 服務。
+
+目前產生手機 APK 時，預設也會載入同一個 Funnel 網址
+`https://desktop-loi23mp.tail9c076e.ts.net/eng-vocabulary/`，因此手機與網頁會使用
+同一份範圍資料與 API。若 Funnel 網址變更，建置前以 `CAP_SERVER_URL` 覆蓋它，並重新安裝 APK。
