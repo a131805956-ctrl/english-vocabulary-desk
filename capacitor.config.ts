@@ -5,8 +5,10 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // same origin, so range data and review progress work on the phone too.
 // Local testing can still override it with CAP_SERVER_URL=http://127.0.0.1:5173
 // (or another LAN/Tailscale URL).
-const serverUrl = process.env.CAP_SERVER_URL?.trim()
-  || 'https://desktop-loi23mp.tail9c076e.ts.net/eng-vocabulary/';
+const configuredServerUrl = process.env.CAP_SERVER_URL;
+const serverUrl = configuredServerUrl === undefined
+  ? 'https://desktop-loi23mp.tail9c076e.ts.net/eng-vocabulary/'
+  : configuredServerUrl.trim();
 
 const config: CapacitorConfig = {
   appId: 'com.morphemedesk.vocabulary',

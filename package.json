@@ -15,7 +15,7 @@
     "test": "npm run test:server && npm run test:ui",
     "check": "npm run typecheck && npm run test && npm run build",
     "start": "node server/app.mjs",
-    "android:sync": "npm run build && npx cap sync android",
+    "android:sync": "npm run build:funnel && npx cap sync android",
     "android:build": "npm run android:sync && cd android && gradlew.bat assembleDebug"
   },
   "dependencies": {

@@ -43,4 +43,7 @@ APK 會載入 Pages 的前端，前端再呼叫 `VITE_API_BASE_URL`。不要把 
 這個替代架構只有在 `VITE_API_BASE_URL` 指向可從手機連線、且已部署 `/api`
 路由的 HTTPS 後端時才可用；目前的 GitHub Pages 網址本身沒有這些路由。
 
-若要做完全離線／內網 APK，清除 `CAP_SERVER_URL` 後執行 `npm run android:build`，Capacitor 會改用打包在 APK 裡的 `dist/`。
+若要做完全離線／內網 APK，請在同一個 PowerShell 視窗執行
+`$env:CAP_SERVER_URL=''`，再用 `npm run build`、`npx cap sync android` 與
+Gradle 建置；此時 Capacitor 會改用打包在 APK 裡的 `dist/`。不要用
+`npm run android:build`，因為它會刻意先用 `/eng-vocabulary/` base 建置 Funnel 版。
