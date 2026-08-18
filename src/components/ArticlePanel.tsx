@@ -49,6 +49,21 @@ export function removeSelectedWord(currentIds: readonly string[], lexemeId: stri
   return currentIds.filter((id) => id !== lexemeId);
 }
 
+export function translationDisplayState(value: string | null): {
+  hasTranslation: boolean;
+  paragraphs: string[];
+  notice: string | null;
+} {
+  const paragraphs = value?.split(/\n{2,}/u).map((paragraph) => paragraph.trim()).filter(Boolean) ?? [];
+  return paragraphs.length > 0
+    ? { hasTranslation: true, paragraphs, notice: null }
+    : {
+        hasTranslation: false,
+        paragraphs: [],
+        notice: '尚未取得中文翻譯，請重新生成文章。',
+      };
+}
+
 export function isArchiveActionLocked(
   openingId: string | null,
   pendingDeleteId: string | null,
@@ -567,7 +582,7 @@ const ArticleResult = forwardRef<HTMLElement, {
   onBackToArchive: () => void;
 }>(({ result, selectedCards, onCopy, onBackToArchive }, ref) => {
   const paragraphs = result.article.body.split(/\n{2,}/).filter(Boolean);
-  const translation = result.article.translationZh?.split(/\n{2,}/).filter(Boolean) ?? [];
+  const translationState = translationDisplayState(result.article.translationZh);
   const usedWords = result.article.usedWords.length > 0
     ? result.article.usedWords
     : selectedCards.map((card) => card.displayHeadword);
@@ -590,12 +605,16 @@ const ArticleResult = forwardRef<HTMLElement, {
       <div className="generated-words" aria-label="文章使用的目標單字">
         {usedWords.map((word) => <span key={word} lang="en">{word}</span>)}
       </div>
-      {translation.length > 0 && (
-        <details className="article-translation">
-          <summary>查看中文翻譯</summary>
-          <div>{translation.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 12)}`}>{paragraph}</p>)}</div>
-        </details>
-      )}
+      <details className="article-translation" open>
+        <summary>中文翻譯</summary>
+        <div>
+          {translationState.hasTranslation
+            ? translationState.paragraphs.map((paragraph, index) => (
+                <p key={`${index}-${paragraph.slice(0, 12)}`}>{paragraph}</p>
+              ))
+            : <p className="article-translation-missing">{translationState.notice}</p>}
+        </div>
+      </details>
       {result.article.questions.length > 0 && (
         <section className="article-questions" aria-labelledby="article-questions-title">
           <h4 id="article-questions-title">閱讀理解</h4>

@@ -653,9 +653,13 @@ function parseGeneratedArticle(content) {
 
   const title = cleanGeneratedString(parsed.title);
   const body = cleanGeneratedString(parsed.body ?? parsed.article);
+  const translationValue = parsed.translationZh
+    ?? parsed.translation
+    ?? parsed.translation_zh
+    ?? parsed.chineseTranslation;
   const translationZh = parsed.translationZh === null
     ? null
-    : cleanGeneratedString(parsed.translationZh ?? parsed.translation);
+    : cleanGeneratedString(translationValue);
   const usedWords = Array.isArray(parsed.usedWords)
     ? parsed.usedWords.filter((item) => typeof item === 'string').map((item) => item.trim())
     : [];

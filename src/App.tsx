@@ -16,7 +16,16 @@ import {
   sanitizeSelection,
   toggleRangeSelection,
 } from './range-utils';
-import { loadPreferences, savePreferences } from './storage';
+import {
+  loadPreferences,
+  loadStudySnapshot,
+  savePreferences,
+  saveStudySnapshot,
+} from './storage';
+import {
+  AUTO_SPEAK_DELAY_MS,
+  normalizeSpeechVolume,
+} from './speech';
 import type {
   AppPreferences,
   ArticleProvider,
@@ -55,6 +64,7 @@ export function App() {
   const [flipped, setFlipped] = useState(false);
   const [hasFlipped, setHasFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [resumeReady, setResumeReady] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
@@ -66,6 +76,7 @@ export function App() {
   const cardShownAt = useRef(Date.now());
   const cardRef = useRef<HTMLButtonElement>(null);
   const focusBeforeModal = useRef<HTMLElement | null>(null);
+  const speechTimer = useRef<number | null>(null);
 
   const currentCard = session?.cards[currentIndex] ?? null;
   const sessionTotal = session?.cards.length ?? 0;
@@ -95,14 +106,24 @@ export function App() {
       try {
         const loadedRanges = await getRanges();
         const selected = sanitizeSelection(loadedRanges, preferences.rangeIds);
+        const snapshot = loadStudySnapshot();
+        const resume = snapshot !== null
+          && snapshot.activeRangeIds.length === selected.length
+          && snapshot.activeRangeIds.every((value, index) => value === selected[index])
+          && snapshot.session.cards.length > 0
+          ? snapshot
+          : null;
+        const nextSessionPromise = resume
+          ? Promise.resolve(resume.session)
+          : createSession({
+              rangeIds: selected,
+              limit: preferences.limit,
+              order: preferences.order,
+              mode: preferences.mode,
+              newLimit: preferences.newLimit,
+            });
         const [nextSession, nextSummary] = await Promise.all([
-          createSession({
-            rangeIds: selected,
-            limit: preferences.limit,
-            order: preferences.order,
-            mode: preferences.mode,
-            newLimit: preferences.newLimit,
-          }),
+          nextSessionPromise,
           getSummary(selected),
         ]);
         if (ignore) return;
@@ -111,6 +132,10 @@ export function App() {
         setDraftRangeIds(selected);
         setSession(nextSession);
         setSummary(nextSummary);
+        setCurrentIndex(resume?.currentIndex ?? 0);
+        setFlipped(resume?.flipped ?? false);
+        setHasFlipped(resume?.hasFlipped ?? false);
+        setResumeReady(true);
         cardShownAt.current = Date.now();
       } catch (reason) {
         if (!ignore) setError(toMessage(reason));
@@ -126,6 +151,17 @@ export function App() {
     // Preferences are intentionally read once to restore the last local session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!resumeReady || !session) return;
+    saveStudySnapshot({
+      session,
+      currentIndex,
+      flipped,
+      hasFlipped,
+      activeRangeIds,
+    });
+  }, [activeRangeIds, currentIndex, flipped, hasFlipped, resumeReady, session]);
 
   useEffect(() => {
     if (!currentCard || loading) return;
@@ -180,9 +216,10 @@ export function App() {
     };
   }, [modalKey]);
 
-  const speakCurrent = () => {
-    if (!currentCard) return;
+  const speakCurrent = (force = false) => {
+    if (!currentCard || preferences.speechMuted && !force) return;
     const word = currentCard.displayHeadword;
+    const volume = normalizeSpeechVolume(preferences.speechVolume);
     void (async () => {
       try {
         // Capacitor uses Android's installed system TTS engine in the APK and
@@ -192,7 +229,7 @@ export function App() {
           lang: 'en-US',
           rate: 0.88,
           pitch: 1,
-          volume: 1,
+          volume,
           queueStrategy: QueueStrategy.Flush,
         });
         setLiveMessage(`播放 ${word} 的英文發音`);
@@ -209,9 +246,41 @@ export function App() {
       const utterance = new SpeechSynthesisUtterance(word);
       utterance.lang = 'en-US';
       utterance.rate = 0.88;
+      utterance.volume = volume;
       window.speechSynthesis.speak(utterance);
       setLiveMessage(`播放 ${word} 的英文發音`);
     })();
+  };
+
+  useEffect(() => {
+    if (speechTimer.current !== null) {
+      window.clearTimeout(speechTimer.current);
+      speechTimer.current = null;
+    }
+    if (!currentCard || loading || preferences.speechMuted) return;
+    const cardId = currentCard.lexemeId;
+    speechTimer.current = window.setTimeout(() => {
+      speechTimer.current = null;
+      if (currentCard?.lexemeId === cardId) speakCurrent();
+    }, AUTO_SPEAK_DELAY_MS);
+    return () => {
+      if (speechTimer.current !== null) {
+        window.clearTimeout(speechTimer.current);
+        speechTimer.current = null;
+      }
+    };
+  }, [currentCard?.lexemeId, loading, preferences.speechMuted, preferences.speechVolume]);
+
+  const toggleSpeech = () => {
+    const muted = !preferences.speechMuted;
+    if (muted) {
+      void TextToSpeech.stop().catch(() => undefined);
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+    const nextPreferences = { ...preferences, speechMuted: muted };
+    setPreferences(nextPreferences);
+    savePreferences(nextPreferences);
+    setLiveMessage(muted ? '已靜音自動發音' : '已開啟自動發音');
   };
 
   const flipCurrent = () => {
@@ -279,7 +348,7 @@ export function App() {
         void rateCurrent('good');
       } else if (event.key.toLowerCase() === 's') {
         event.preventDefault();
-        speakCurrent();
+        speakCurrent(true);
       }
     };
 
@@ -423,9 +492,10 @@ export function App() {
                 card={currentCard}
                 flipped={flipped}
                 disabled={reviewing}
+                speechMuted={preferences.speechMuted}
                 onFlip={flipCurrent}
                 onRate={(rating) => void rateCurrent(rating)}
-                onSpeak={speakCurrent}
+                onToggleSpeech={toggleSpeech}
               />
               <RatingDock
                 disabled={!currentCard}
@@ -488,9 +558,24 @@ export function App() {
         aiBaseUrl={aiBaseUrl}
         aiModel={aiModel}
         aiProvider={aiProvider}
+        speechMuted={preferences.speechMuted}
+        speechVolume={preferences.speechVolume}
         onAiBaseUrlChange={setAiBaseUrl}
         onAiModelChange={setAiModel}
         onAiProviderChange={setAiProvider}
+        onSpeechMutedChange={(muted) => {
+          const nextPreferences = { ...preferences, speechMuted: muted };
+          setPreferences(nextPreferences);
+          savePreferences(nextPreferences);
+        }}
+        onSpeechVolumeChange={(volume) => {
+          const nextPreferences = {
+            ...preferences,
+            speechVolume: normalizeSpeechVolume(volume),
+          };
+          setPreferences(nextPreferences);
+          savePreferences(nextPreferences);
+        }}
         onSaveAi={saveAiSettings}
         onOpenAiSettings={() => handleNavigation('settings')}
         onPracticeProblems={() => void startScope(
@@ -625,9 +710,13 @@ function UtilityPanel({
   aiBaseUrl,
   aiModel,
   aiProvider,
+  speechMuted,
+  speechVolume,
   onAiBaseUrlChange,
   onAiModelChange,
   onAiProviderChange,
+  onSpeechMutedChange,
+  onSpeechVolumeChange,
   onSaveAi,
   onOpenAiSettings,
   onPracticeProblems,
@@ -639,9 +728,13 @@ function UtilityPanel({
   aiBaseUrl: string;
   aiModel: string;
   aiProvider: ArticleProvider;
+  speechMuted: boolean;
+  speechVolume: number;
   onAiBaseUrlChange: (value: string) => void;
   onAiModelChange: (value: string) => void;
   onAiProviderChange: (value: ArticleProvider) => void;
+  onSpeechMutedChange: (value: boolean) => void;
+  onSpeechVolumeChange: (value: number) => void;
   onSaveAi: () => void;
   onOpenAiSettings: () => void;
   onPracticeProblems: () => void;
@@ -726,6 +819,36 @@ function UtilityPanel({
                 </label>
               </>
             )}
+            <section className="speech-settings" aria-labelledby="speech-settings-title">
+              <div className="speech-settings-heading">
+                <div>
+                  <span className="eyebrow">CARD AUDIO</span>
+                  <h3 id="speech-settings-title">自動發音</h3>
+                </div>
+                <button
+                  className="quiet-button compact-button"
+                  type="button"
+                  aria-pressed={speechMuted}
+                  onClick={() => onSpeechMutedChange(!speechMuted)}
+                >
+                  {speechMuted ? '已靜音' : '播放中'}
+                </button>
+              </div>
+              <label htmlFor="speech-volume">
+                <span>發音音量 <output>{Math.round(speechVolume * 100)}%</output></span>
+                <input
+                  id="speech-volume"
+                  name="speech-volume"
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value={speechVolume}
+                  onChange={(event) => onSpeechVolumeChange(Number(event.target.value))}
+                />
+              </label>
+              <p>下一張單字卡出現約 0.9 秒後自動播放；也可以直接按卡片右上角靜音。</p>
+            </section>
             <button className="primary-button" type="button" onClick={onSaveAi}>保存本機設定</button>
           </div>
         )}

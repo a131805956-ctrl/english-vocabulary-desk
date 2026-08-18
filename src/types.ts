@@ -83,6 +83,16 @@ export interface StudySession {
   cards: StudyCard[];
 }
 
+export interface StudyResumeSnapshot {
+  version: 1;
+  session: StudySession;
+  currentIndex: number;
+  flipped: boolean;
+  hasFlipped: boolean;
+  activeRangeIds: string[];
+  savedAt: string;
+}
+
 export interface ProblemLexeme {
   lexemeId: string;
   displayHeadword: string | null;
@@ -176,6 +186,8 @@ export interface AppPreferences {
   limit: number | null;
   mode: Exclude<SessionMode, 'problems'>;
   newLimit: number;
+  speechMuted: boolean;
+  speechVolume: number;
   ai: {
     provider: ArticleProvider;
     baseUrl: string;

@@ -3,6 +3,7 @@ import {
   addVisibleWordsToSelection,
   isArchiveActionLocked,
   removeSelectedWord,
+  translationDisplayState,
   toggleVisibleWordsSelection,
 } from './ArticlePanel';
 
@@ -51,5 +52,23 @@ describe('article selection interactions', () => {
       ['lexeme:one', 'lexeme:two', 'lexeme:three'],
       'lexeme:two',
     )).toEqual(['lexeme:one', 'lexeme:three']);
+  });
+});
+
+describe('article translation display', () => {
+  it('keeps generated Chinese translation visible by default', () => {
+    expect(translationDisplayState('第一段\n\n第二段')).toEqual({
+      hasTranslation: true,
+      paragraphs: ['第一段', '第二段'],
+      notice: null,
+    });
+  });
+
+  it('explains when the model omitted the translation', () => {
+    expect(translationDisplayState(null)).toEqual({
+      hasTranslation: false,
+      paragraphs: [],
+      notice: '尚未取得中文翻譯，請重新生成文章。',
+    });
   });
 });

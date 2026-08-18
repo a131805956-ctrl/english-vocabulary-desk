@@ -1,6 +1,8 @@
-import type { AppPreferences } from './types';
+import { DEFAULT_SPEECH_VOLUME, normalizeSpeechVolume } from './speech';
+import type { AppPreferences, StudyResumeSnapshot, StudySession } from './types';
 
 const STORAGE_KEY = 'morphemeDesk:preferences:v1';
+const STUDY_RESUME_KEY = 'morphemeDesk:study-resume:v1';
 
 export const DEFAULT_PREFERENCES: AppPreferences = {
   rangeIds: ['all'],
@@ -8,6 +10,8 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
   limit: 40,
   mode: 'today',
   newLimit: 20,
+  speechMuted: false,
+  speechVolume: DEFAULT_SPEECH_VOLUME,
   ai: {
     provider: 'auto',
     baseUrl: 'http://127.0.0.1:11434',
@@ -42,6 +46,8 @@ export function loadPreferences(): AppPreferences {
       newLimit: [0, 10, 20, 40, 80].includes(parsed.newLimit ?? -1)
         ? parsed.newLimit ?? DEFAULT_PREFERENCES.newLimit
         : DEFAULT_PREFERENCES.newLimit,
+      speechMuted: parsed.speechMuted === true,
+      speechVolume: normalizeSpeechVolume(parsed.speechVolume),
       ai: {
         provider: parsed.ai?.provider === 'hermes' ? 'hermes' : 'auto',
         baseUrl:
@@ -62,4 +68,68 @@ export function savePreferences(preferences: AppPreferences): void {
   } catch {
     // The app remains usable when storage is blocked or full.
   }
+}
+
+type StudyResumeInput = Omit<StudyResumeSnapshot, 'version' | 'savedAt'>;
+
+export function saveStudySnapshot(snapshot: StudyResumeInput): void {
+  try {
+    window.localStorage.setItem(STUDY_RESUME_KEY, JSON.stringify({
+      ...snapshot,
+      version: 1,
+      savedAt: new Date().toISOString(),
+    } satisfies StudyResumeSnapshot));
+  } catch {
+    // The app remains usable when storage is blocked or full.
+  }
+}
+
+export function loadStudySnapshot(): StudyResumeSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(STUDY_RESUME_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isStudyResumeSnapshot(parsed)) return null;
+    return {
+      ...parsed,
+      currentIndex: Math.max(0, Math.min(parsed.currentIndex, parsed.session.cards.length)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearStudySnapshot(): void {
+  try {
+    window.localStorage.removeItem(STUDY_RESUME_KEY);
+  } catch {
+    // Ignore blocked storage.
+  }
+}
+
+function isStudyResumeSnapshot(value: unknown): value is StudyResumeSnapshot {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<StudyResumeSnapshot>;
+  return candidate.version === 1
+    && isStudySession(candidate.session)
+    && Number.isFinite(candidate.currentIndex)
+    && typeof candidate.flipped === 'boolean'
+    && typeof candidate.hasFlipped === 'boolean'
+    && Array.isArray(candidate.activeRangeIds)
+    && candidate.activeRangeIds.every((item) => typeof item === 'string')
+    && typeof candidate.savedAt === 'string';
+}
+
+function isStudySession(value: unknown): value is StudySession {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<StudySession>;
+  return typeof candidate.sessionId === 'string'
+    && typeof candidate.total === 'number'
+    && Array.isArray(candidate.cards)
+    && candidate.cards.every((card) => (
+      typeof card === 'object'
+      && card !== null
+      && typeof (card as { lexemeId?: unknown }).lexemeId === 'string'
+    ));
 }

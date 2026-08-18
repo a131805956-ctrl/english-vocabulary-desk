@@ -9,14 +9,16 @@ import {
 } from 'react';
 import type { ReviewRating, StudyCard } from '../types';
 import { resolveSwipeRating } from '../swipe-utils';
+import { speechToggleLabel } from '../speech';
 
 interface FlashcardProps {
   card: StudyCard;
   flipped: boolean;
   disabled: boolean;
+  speechMuted: boolean;
   onFlip: () => void;
   onRate: (rating: ReviewRating) => void;
-  onSpeak: () => void;
+  onToggleSpeech: () => void;
 }
 
 interface DragOrigin {
@@ -29,7 +31,7 @@ const SWIPE_EXIT_MS = 190;
 
 export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
   function Flashcard(
-    { card, flipped, disabled, onFlip, onRate, onSpeak },
+    { card, flipped, disabled, speechMuted, onFlip, onRate, onToggleSpeech },
     ref,
   ) {
     const [dragX, setDragX] = useState(0);
@@ -248,12 +250,12 @@ export const Flashcard = forwardRef<HTMLButtonElement, FlashcardProps>(
         <button
           className="pronounce-button"
           type="button"
-          aria-label={`播放 ${card.displayHeadword} 發音`}
-          onClick={onSpeak}
-          disabled={disabled}
+          aria-label={speechToggleLabel(speechMuted)}
+          aria-pressed={speechMuted}
+          onClick={onToggleSpeech}
         >
-          <SpeakerIcon />
-          <span className="sr-only">播放發音</span>
+          <SpeakerIcon muted={speechMuted} />
+          <span className="sr-only">{speechToggleLabel(speechMuted)}</span>
         </button>
       </div>
     );
@@ -273,11 +275,12 @@ function parseEtymology(value: string | null): Array<{ form: string; meaning: st
   });
 }
 
-function SpeakerIcon() {
+function SpeakerIcon({ muted }: { muted: boolean }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M5 9v6h4l5 4V5L9 9H5Z" />
-      <path d="M17 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" />
+      {!muted && <path d="M17 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" />}
+      {muted && <path d="m17 9 5 6m0-6-5 6" />}
     </svg>
   );
 }

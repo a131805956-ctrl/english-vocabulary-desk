@@ -1536,6 +1536,54 @@ button:disabled {
   align-self: flex-start;
 }
 
+.speech-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--morph);
+  border-radius: 5px 12px 12px 5px;
+  background: #fbfcff;
+}
+
+.speech-settings-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.speech-settings-heading h3 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.speech-settings label span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.speech-settings output {
+  color: var(--morph);
+  font: 800 12px/1 var(--font-data);
+}
+
+.speech-settings input[type='range'] {
+  min-height: 28px;
+  padding: 0;
+  accent-color: var(--morph);
+}
+
+.speech-settings > p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .hermes-setting-note {
   display: flex;
   flex-direction: column;
@@ -2144,6 +2192,11 @@ button:disabled {
   color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.75;
+}
+
+.article-translation-missing {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .article-questions h4 {

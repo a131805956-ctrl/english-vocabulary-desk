@@ -45,6 +45,10 @@ test('local AI article API', async (t) => {
         { question: 'Why is the story useful?', answer: 'It gives the words context.' },
       ],
     };
+    if (payload.model === 'alias-model') {
+      delete article.translationZh;
+      article.chineseTranslation = '這是由模型使用別名欄位回傳的中文翻譯。';
+    }
     const responseBody = url.pathname.endsWith('/api/chat')
       ? { message: { role: 'assistant', content: JSON.stringify(article) }, done: true }
       : { choices: [{ message: { role: 'assistant', content: JSON.stringify(article) } }] };
@@ -139,6 +143,29 @@ test('local AI article API', async (t) => {
     assert.equal(call.url, 'http://localhost:1234/v1/chat/completions');
     assert.deepEqual(call.payload.response_format, { type: 'json_object' });
     assert.equal(call.payload.stream, undefined);
+  });
+
+  await t.test('normalizes a common Chinese translation alias', async () => {
+    const result = await requestJson(baseUrl, '/api/articles', {
+      baseUrl: 'http://localhost:1234/v1',
+      model: 'alias-model',
+      provider: 'auto',
+      words: selectedWords,
+      level: 'beginner',
+      length: 'short',
+      includeTranslation: true,
+    });
+
+    try {
+      assert.equal(result.response.status, 201);
+      assert.equal(result.body.article.translationZh, '這是由模型使用別名欄位回傳的中文翻譯。');
+    } finally {
+      await requestMethod(
+        baseUrl,
+        `/api/articles/${encodeURIComponent(result.body.saved.articleId)}`,
+        'DELETE',
+      );
+    }
   });
 
   await t.test('Hermes Agent uses a tool-free local adapter and needs no model URL', async () => {
